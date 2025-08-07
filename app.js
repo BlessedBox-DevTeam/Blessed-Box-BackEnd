@@ -8,6 +8,10 @@ require('dotenv').config({
   path: path.resolve(__dirname, '.env'),
 });
 
+console.log('__dirname:', __dirname);
+console.log('process.env.PORT:', process.env.PORT);
+
+
 
 const app = express();
 const server = http.createServer(app);
