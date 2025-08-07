@@ -33,3 +33,7 @@ const PORT = process.env.PORT;
 server.listen(PORT, () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
 });
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ message: 'Servidor funcionando correctamente' });
+});
