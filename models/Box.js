@@ -1,7 +1,7 @@
 const db = require("../db.js");
 
 // Insert a new box
-const newBox = async (boxes) => {
+const newBox = async (boxes, userId) => {
   if (!Array.isArray(boxes) || boxes.length === 0) {
     throw new Error("The 'boxes' parameter must be a non-empty array.");
   }
@@ -12,18 +12,20 @@ const newBox = async (boxes) => {
   }
 
   // Build placeholders for each record (?,?,?,?)
-  const placeholders = boxes.map(() => "(?, ?, ?, ?)").join(", ");
+  const placeholders = boxes.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
 
   // Flatten the data into a single array for query parameters
   const values = boxes.flatMap(box => [
-    box.name,
-    box.location,
-    box.status,
-    box.centerId
+    box.genderId,
+    box.boxAgeId,
+    box.transactionId,
+    box.recollectionCenterId,
+    box.isSpecialOrder ? 1 : 0
+    userId,
   ]);
 
   const query = `
-    INSERT INTO box (name, location, status, center_id)
+    INSERT INTO boxes (genderId, boxAgeId, transactionId, recollectionCenterId, isSpecialOrder, createdBy )
     VALUES ${placeholders};
   `;
 
@@ -32,12 +34,12 @@ const newBox = async (boxes) => {
 };
 
 // Get box by ID
-const getBoxesById = async (id) => {
-  const [rows] = await db.query("SELECT * FROM box WHERE id = ?", [id]);
+const getBoxesByTransactionId = async (id) => {
+  const [rows] = await db.query("SELECT * FROM boxes WHERE transactionId = ?", [id]);
   return rows[0] || null;
 };
 
 module.exports = {
   newBox,
-  getBoxesById
+  getBoxesByTransactionId
 };
