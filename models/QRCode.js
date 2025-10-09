@@ -2,11 +2,20 @@ const db = require("../db.js");
 
 // Insert a new QR code record
 const newQRCode = async (codeValue, createdAt, status, centerId) => {
-  const [result] = await db.query(
-    "INSERT INTO qr_code (code_value, created_at, status, center_id) VALUES (?, ?, ?, ?)",
-    [codeValue, createdAt, status, centerId]
-  );
-  return result;
+  try {
+    // Hash the QR value before storing
+    const hashedCode = await argon2.hash(codeValue);
+
+    const [result] = await db.query(
+      "INSERT INTO qr_code (code_value, created_at, status, center_id) VALUES (?, ?, ?, ?)",
+      [hashedCode, createdAt, status, centerId]
+    );
+
+    return result;
+  } catch (error) {
+    console.error("Error hashing or inserting QR code:", error);
+    throw error;
+  }
 };
 
 // Get all QR codes
