@@ -1,33 +1,37 @@
 const db = require("../db.js");
 
 // Insert a new transaction
-const newTransaction = async (amount, type, date, userId, description) => {
+const newTransaction = async (recollectionCenterId, userId, emailNotificationId, statusCode) => {
   const [result] = await db.query(
-    "INSERT INTO transaction (amount, type, date, user_id, description) VALUES (?, ?, ?, ?, ?)",
-    [amount, type, date, userId, description]
+    "INSERT INTO transactions 
+    (recollectionCenterId, createdBy, emailNotificationId, statusCode) 
+    VALUES (?, ?, ?, ?)",
+    [recollectionCenterId, userId, emailNotificationId, statusCode]
   );
   return result;
 };
 
 // Get all transactions
 const getTransactions = async () => {
-  const [rows] = await db.query("SELECT * FROM transaction");
+  const [rows] = await db.query("SELECT * FROM transactions");
   return rows;
 };
 
 // Get a transaction by ID
-const getTransactionsById = async (id) => {
+const getTransactionsByRecollectionCenterId = async (recollectionCenterId) => {
   const [rows] = await db.query(
-    "SELECT * FROM transaction WHERE id = ?",
-    [id]
+    "SELECT * FROM transactions WHERE recollectionCenterId = ?",
+    [recollectionCenterId]
   );
   return rows[0] || null;
 };
 
-const editTransactionStatusById = async (id, status) => {
+const editTransactionStatusById = async (id, statusCode) => {
   const [result] = await db.query(
-    "UPDATE transaction SET status = ? WHERE id = ?",
-    [status, id]
+    "UPDATE transactions
+      SET statusCode = ?
+    WHERE id = ?",
+    [statusCode, id]
   );
   return result;
 };
@@ -36,5 +40,6 @@ const editTransactionStatusById = async (id, status) => {
 module.exports = {
   newTransaction,
   getTransactions,
-  getTransactionsById
+  getTransactionsByRecollectionCenterId,
+  editTransactionStatusById
 };
