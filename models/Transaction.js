@@ -24,6 +24,15 @@ const getTransactionsById = async (id) => {
   return rows[0] || null;
 };
 
+const editTransactionStatusById = async (id, status) => {
+  const [result] = await db.query(
+    "UPDATE transaction SET status = ? WHERE id = ?",
+    [status, id]
+  );
+  return result;
+};
+
+
 module.exports = {
   newTransaction,
   getTransactions,
