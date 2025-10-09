@@ -24,8 +24,18 @@ const getQRCodeById = async (id) => {
   return rows[0] || null;
 };
 
+const compareCodeValue = async (codeValue) => {
+  const [rows] = await db.query(
+    "SELECT * FROM qr_code WHERE code_value = ?",
+    [codeValue]
+  );
+  // If there is a match, return the QR record; otherwise return null
+  return rows[0] || null;
+};
+
 module.exports = {
   newQRCode,
   getQRCodes,
-  getQRCodeById
+  getQRCodeById,
+  compareCodeValue
 };
