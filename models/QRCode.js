@@ -26,25 +26,29 @@ const getQRCodes = async () => {
 
 // Get QR code by ID
 const getQRCodeById = async (id) => {
-  const [rows] = await db.query(
-    "SELECT * FROM qrcodes WHERE id = ?",
-    [id]
-  );
+  const [rows] = await db.query("SELECT * FROM qrcodes WHERE id = ?", [id]);
   return rows[0] || null;
 };
 
-const compareCodeValue = async (codeValue) => {
+const compareQRCodeValue = async (codeValue) => {
+  let isMatch = false;
   const [rows] = await db.query(
-    "SELECT * FROM qrcodes WHERE qrcode = ?",
-    [codeValue]
+    "SELECT qrcode FROM qrcodes WHERE isDeleted = 0"
   );
+  // Compare entered key with each stored hash
+  for (const record of rows) {
+    isMatch = await argon2.verify(record.qrcode, codeValue);
+    if (isMatch) {
+      return record; // Return the matched record
+    }
+  }
   // If there is a match, return the QR record; otherwise return null
-  return rows[0] || null;
+  return isMatch || null;
 };
 
 module.exports = {
   newQRCode,
   getQRCodes,
   getQRCodeById,
-  compareCodeValue
+  compareQRCodeValue
 };

@@ -5,11 +5,9 @@ const argon2 = require("argon2");
 /**
  * Insert a new backup key (hashed with Argon2)
  * @param {string} keyValue - The plaintext backup key to hash and store
- * @param {number|null} userId - Optional: related user id
- * @param {Date|string|null} createdAt - Optional creation timestamp (defaults to NOW() in DB if null)
  * @returns {Promise<object>} - Result of the insert query
  */
-const insert = async (keyValue) => {
+const newBackupKey = async (keyValue) => {
   try {
     // Hash the backup key using Argon2
     const hashedKey = await argon2.hash(keyValue);
@@ -34,18 +32,11 @@ const insert = async (keyValue) => {
  */
 const getBackupKeyById = async (id) => {
   const [rows] = await db.query(
-    "SELECT backupKey
-    FROM qrbackupkeys bk
-    INNER JOIN qrcodes qr
-      ON bk.backupKeyId = qr.backupKeyId
-      AND qr.isDeleted = 0
-    WHERE = ?
-      AND bk.isDeleted = 0",
+    "SELECT backupKey FROM qrbackupkeys bk INNER JOIN qrcodes qr ON bk.backupKeyId = qr.backupKeyId AND qr.isDeleted = 0 WHERE = ? AND bk.isDeleted = 0",
     [id]
   );
   return rows;
 };
-
 
 const argon2 = require("argon2");
 const db = require("../db.js");
@@ -59,11 +50,7 @@ const verifyKey = async (keyValue) => {
   try {
     // Get all backup key hashes for this user (or all if you prefer)
     const [rows] = await db.query(
-      "SELECT
-      backupKeyId,
-      backupKey,
-      FROM qrbackupkeys
-      WHERE isDeleted = 0",
+      "SELECT backupKeyId, backupKey, FROM qrbackupkeys WHERE isDeleted = 0"
     );
 
     // Compare entered key with each stored hash
@@ -83,7 +70,7 @@ const verifyKey = async (keyValue) => {
 };
 
 module.exports = {
-  insert,
+  newBackupKey,
   getBackupKeyById,
   verifyKey
 };
