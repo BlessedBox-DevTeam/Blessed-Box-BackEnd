@@ -38,9 +38,6 @@ const getBackupKeyById = async (id) => {
   return rows;
 };
 
-const argon2 = require("argon2");
-const db = require("../db.js");
-
 /**
  * Verify a plaintext backup key entered by user
  * @param {string} keyValue - Plaintext key entered by user
@@ -50,7 +47,7 @@ const verifyKey = async (keyValue) => {
   try {
     // Get all backup key hashes for this user (or all if you prefer)
     const [rows] = await db.query(
-      "SELECT backupKeyId, backupKey, FROM qrbackupkeys WHERE isDeleted = 0"
+      "SELECT backupKeyId, backupKey FROM qrbackupkeys WHERE isDeleted = 0"
     );
 
     // Compare entered key with each stored hash

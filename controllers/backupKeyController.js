@@ -2,8 +2,7 @@ const { newBackupKey, verifyKey } = require("../models/BackupKey");
 const argon2 = require("argon2");
 
 async function writeNewBackupKey(req, res) {
-  //   const { keyValue } = req.body;
-  const keyValue = "12345678";
+  const { keyValue } = req.body;
   try {
     await newBackupKey(keyValue);
     res.status(201).json({ message: "Llave generada" });
@@ -13,8 +12,7 @@ async function writeNewBackupKey(req, res) {
 }
 
 async function isKeyCorrect(req, res) {
-  //   const { keyValue } = req.body;
-  const keyValue = "12345678";
+  const { keyValue } = req.body;
   try {
     const isValid = await verifyKey(keyValue);
     if (isValid) {
