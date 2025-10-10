@@ -1,11 +1,9 @@
 const db = require("../db.js");
+const argon2 = require("argon2");
 
 // Insert a new QR code record
-const newQRCode = async (codeValue, backupKeyId) => {
+const newQRCode = async (hashedCode, backupKeyId) => {
   try {
-    // Hash the QR value before storing
-    const hashedCode = await argon2.hash(codeValue);
-
     const [result] = await db.query(
       "INSERT INTO qrcodes (qrCode, backupKeyId) VALUES (?, ?)",
       [hashedCode, backupKeyId]
