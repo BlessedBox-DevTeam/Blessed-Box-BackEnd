@@ -27,7 +27,7 @@ app.use("/api/recollectionCenters", require("./routes/recollectionCenters"));
 
 // Servidor escuchando
 const PORT = process.env.PORT;
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
 });
 
