@@ -29,19 +29,16 @@ const getQRCodeById = async (id) => {
 };
 
 const compareQRCodeValue = async (codeValue) => {
-  let isMatch = false;
   const [rows] = await db.query(
     "SELECT qrcode FROM qrcodes WHERE isDeleted = 0"
   );
-  // Compare entered key with each stored hash
   for (const record of rows) {
-    isMatch = await argon2.verify(record.qrcode, codeValue);
+    const isMatch = await argon2.verify(record.qrcode, codeValue);
     if (isMatch) {
-      return record; // Return the matched record
+      return true;
     }
   }
-  // If there is a match, return the QR record; otherwise return null
-  return isMatch || null;
+  return false;
 };
 
 module.exports = {

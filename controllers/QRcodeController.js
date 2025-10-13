@@ -7,15 +7,14 @@ async function writeNewQRCode(req, res) {
   const { qrCodeValue } = req.body;
   //   const backupKeyId = "1";
   try {
-    // Hash the QR value before storing
-    const hashedCode = await argon2.hash(qrCodeValue);
     //  Generate Image for QR
-    const generateQRImage = await QRCode.toFile("./myqr.png", hashedCode, {
+    const generateQRImage = await QRCode.toFile("./QR.png", qrCodeValue, {
       color: { dark: "#000", light: "#FFF" },
       width: 300
     });
 
-    console.log("QR Code generated as myqr.png");
+    // Hash the QR value before storing
+    const hashedCode = await argon2.hash(qrCodeValue);
 
     await newQRCode(hashedCode, 1);
     res.status(201).json({ message: "QR Code generado" });
@@ -29,12 +28,24 @@ async function isQRCodeValueCorrect(req, res) {
   try {
     const isValid = await compareQRCodeValue(qrCodeValue);
     if (isValid) {
-      res.json({ message: "QR Code es correcto" });
+      res.json({
+        data: isValid,
+        success: true,
+        message: "The QR code is correct."
+      });
     } else {
-      res.json({ message: "QR Code incorrecto" });
+      res.json({
+        data: isValid,
+        success: true,
+        message: "The QR code is incorrect. Please check and try again."
+      });
     }
   } catch (error) {
-    res.status(500).json({ error: "Error" });
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor.",
+      error: error.message
+    });
   }
 }
 

@@ -54,12 +54,12 @@ const verifyKey = async (keyValue) => {
     for (const record of rows) {
       const isMatch = await argon2.verify(record.backupKey, keyValue);
       if (isMatch) {
-        return record; // Return the matched record
+        return true; // Return the matched record
       }
     }
 
     // No matches found
-    return null;
+    return false;
   } catch (error) {
     console.error("Error verifying backup key:", error);
     throw error;
