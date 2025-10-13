@@ -36,7 +36,7 @@ async function writeNewTransaction(req, res) {
 }
 
 async function getTransactionsByRecollectionCenter(req, res) {
-  const { recollectionCenterId } = req.body;
+  const recollectionCenterId = Number(req.query.recollectionCenterId);
   try {
     const response = await getTransactionsByRecollectionCenterId(
       recollectionCenterId

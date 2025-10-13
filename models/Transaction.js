@@ -26,7 +26,26 @@ const getTransactions = async () => {
 // Get a transaction by ID
 const getTransactionsByRecollectionCenterId = async (recollectionCenterId) => {
   const [rows] = await db.query(
-    "SELECT * FROM transactions WHERE recollectionCenterId = ? AND isDeleted = 0",
+    `SELECT
+      t.transactionId,
+      t.createdDate,
+      rc.recollectionCenterName,
+      tst.typeDescription AS statusDescription,
+      tst.typeCode AS statusCode,
+      COUNT(b.boxId) AS boxCount
+    FROM transactions t
+    INNER JOIN transactionstatustypes tst
+      ON tst.typeCode = t.statusCode
+    INNER JOIN boxes b
+      ON b.transactionId = t.transactionId
+      AND b.isDeleted = 0
+    INNER JOIN recollectionCenters rc
+      ON rc.recollectionCenterId = t.recollectionCenterId
+      AND rc.isDeleted = 0
+    WHERE t.recollectionCenterId = ? 
+      AND t.isDeleted = 0
+    GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
+    `,
     [recollectionCenterId]
   );
   return rows || null;
