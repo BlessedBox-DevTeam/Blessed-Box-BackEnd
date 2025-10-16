@@ -18,11 +18,19 @@ const newBackupKey = async (keyValue) => {
     `;
 
     const [result] = await db.query(query, [hashedKey]);
-    return result;
+    return returnServieObject({
+      success: true,
+      data: result,
+      message:''
+    });
   } catch (error) {
     console.error("Error hashing or inserting backup key:", error);
-    throw error;
-  }
+    return returnServieObject({
+      success: false,
+      data: null,
+      message:'Error hashing or inserting backuo key',
+      error:'Error interno del servidor'
+  });
 };
 
 /**
@@ -54,15 +62,20 @@ const verifyKey = async (keyValue) => {
     for (const record of rows) {
       const isMatch = await argon2.verify(record.backupKey, keyValue);
       if (isMatch) {
-        return true; // Return the matched record
+        break; // Return the matched record
       }
     }
-
-    // No matches found
-    return false;
+    return returnServieObject({
+      success: true,
+      data: isMatch,
+    });
   } catch (error) {
     console.error("Error verifying backup key:", error);
-    throw error;
+   return returnServieObject({
+      success: false,
+      data: null,
+      message:'Error verifying backup key',
+      error:'Error interno del servidor'
   }
 };
 
