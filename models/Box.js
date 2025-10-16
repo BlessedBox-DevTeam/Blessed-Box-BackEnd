@@ -2,18 +2,17 @@ const db = require("../db.js");
 
 // Insert a new box
 const newBox = async (boxes, transactionId, userId) => {
+  try{
+    
   if (!Array.isArray(boxes) || boxes.length === 0) {
     throw new Error("The 'boxes' parameter must be a non-empty array.");
   }
-
   // Limit to 100 inserts per batch
   if (boxes.length > 100) {
     throw new Error("Cannot insert more than 100 boxes at a time.");
   }
-
   // Build placeholders for each record (?,?,?,?)
   const placeholders = boxes.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
-
   // Flatten the data into a single array for query parameters
   const values = boxes.flatMap((box) => [
     box?.genderId ? box.genderId : null,
@@ -23,22 +22,42 @@ const newBox = async (boxes, transactionId, userId) => {
     box?.isSpecialOrder ? 1 : 0,
     userId
   ]);
-
+    // Construct query
   const query = `INSERT INTO boxes
    (genderId, boxAgeId, transactionId, recollectionCenterId, isSpecialOrder, createdBy)
     VALUES ${placeholders};
   `;
-
   const [result] = await db.query(query, values);
-  return result;
-};
-
+  return returnServieObject({
+      success: true,
+      data: result
+});
+}
+  catch(error){
+   return returnServieObject({
+      success: false,
+      data: null,
+     message:'Error inserting new box',
+     error: error
+});
+  }
 // Get box by ID
 const getBoxesByTransactionId = async (id) => {
-  const [rows] = await db.query("SELECT * FROM boxes WHERE transactionId = ?", [
-    id
-  ]);
-  return rows[0] || null;
+  try{
+  const [rows] = await db.query("SELECT * FROM boxes WHERE transactionId = ?", [id]);
+    
+  return returnServieObject({
+      success: true,
+      data: row[0] || null
+    });
+  } 
+  cacth(error){
+      return returnServieObject({
+      success: false,
+      data: null,
+     message:'Error getting boxes by transactionId',
+     error: error
+  }
 };
 
 module.exports = {
