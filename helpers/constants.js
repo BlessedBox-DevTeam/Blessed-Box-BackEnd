@@ -1,0 +1,1 @@
+export const BETHLEHEM_RECOLLECTION_CENTER_ID = 1;

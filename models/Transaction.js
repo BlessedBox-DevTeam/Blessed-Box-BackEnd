@@ -1,64 +1,159 @@
 const db = require("../db.js");
+import { returnServiceObject } from "../helpers/helpers.js";
 
-// Insert a new transaction
+/**
+ * Inserts a new transaction record into the database.
+ *
+ * @param {number|string} recollectionCenterId - The ID of the recollection center associated with the transaction.
+ * @param {number|string} userId - The ID of the user creating the transaction.
+ * @param {number|string|null} emailNotificationId - The related email notification ID (optional).
+ * @param {number} statusCode - The transaction’s current status code.
+ * @returns {Promise<Object>} A service object containing the success flag and new transaction ID.
+ *
+ * @example
+ * const transaction = await newTransaction(1, 5, null, "1");
+ */
 const newTransaction = async (
   recollectionCenterId,
   userId,
   emailNotificationId,
   statusCode
 ) => {
-  const [result] = await db.query(
-    `INSERT INTO transactions 
+  try {
+    // Insert a new transaction record with provided parameters
+    const [result] = await db.query(
+      `
+      INSERT INTO transactions 
       (recollectionCenterId, createdBy, emailNotificationId, statusCode) 
-      VALUES (?, ?, ?, ?)`,
-    [recollectionCenterId, userId, emailNotificationId, statusCode]
-  );
+      VALUES (?, ?, ?, ?)
+      `,
+      [recollectionCenterId, userId, emailNotificationId, statusCode]
+    );
 
-  // insertId = transactionId of the newly created transaction
-  return result.insertId;
+    return returnServiceObject({
+      success: true,
+      data: result.insertId
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error inserting new transaction",
+      error: error
+    });
+  }
 };
-// Get all transactions
+
+/**
+ * Retrieves all transactions from the database.
+ *
+ * @returns {Promise<Object>} A service object containing all transactions or an error message.
+ *
+ * @example
+ * const transactions = await getTransactions();
+ */
 const getTransactions = async () => {
-  const [rows] = await db.query("SELECT * FROM transactions");
-  return rows;
+  try {
+    const [rows] = await db.query("SELECT * FROM transactions");
+
+    return returnServiceObject({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error retrieving all transactions",
+      error: error
+    });
+  }
 };
 
-// Get a transaction by ID
+/**
+ * Retrieves all transactions associated with a specific recollection center.
+ *
+ * @param {number|string} recollectionCenterId - The recollection center ID to filter transactions.
+ * @returns {Promise<Object>} A service object containing transaction summaries or an error.
+ *
+ * @example
+ * const results = await getTransactionsByRecollectionCenterId(2);
+ */
 const getTransactionsByRecollectionCenterId = async (recollectionCenterId) => {
-  const [rows] = await db.query(
-    `SELECT
-      t.transactionId,
-      t.createdDate,
-      rc.recollectionCenterName,
-      tst.typeDescription AS statusDescription,
-      tst.typeCode AS statusCode,
-      COUNT(b.boxId) AS boxCount
-    FROM transactions t
-    INNER JOIN transactionstatustypes tst
-      ON tst.typeCode = t.statusCode
-    INNER JOIN boxes b
-      ON b.transactionId = t.transactionId
-      AND b.isDeleted = 0
-    INNER JOIN recollectionCenters rc
-      ON rc.recollectionCenterId = t.recollectionCenterId
-      AND rc.isDeleted = 0
-    WHERE t.recollectionCenterId = ? 
-      AND t.isDeleted = 0
-    GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
-    `,
-    [recollectionCenterId]
-  );
-  return rows || null;
+  try {
+    const [rows] = await db.query(
+      `
+      SELECT
+        t.transactionId,
+        t.createdDate,
+        rc.recollectionCenterName,
+        tst.typeDescription AS statusDescription,
+        tst.typeCode AS statusCode,
+        COUNT(b.boxId) AS boxCount
+      FROM transactions t
+      INNER JOIN transactionstatustypes tst
+        ON tst.typeCode = t.statusCode
+      INNER JOIN boxes b
+        ON b.transactionId = t.transactionId
+        AND b.isDeleted = 0
+      INNER JOIN recollectionCenters rc
+        ON rc.recollectionCenterId = t.recollectionCenterId
+        AND rc.isDeleted = 0
+      WHERE t.recollectionCenterId = ?
+        AND t.isDeleted = 0
+      GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
+      `,
+      [recollectionCenterId]
+    );
+
+    return returnServiceObject({
+      success: true,
+      data: rows || null
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error retrieving transactions by recollection center ID",
+      error: error
+    });
+  }
 };
 
+/**
+ * Updates the status code of a specific transaction by its ID.
+ *
+ * @param {number|string} id - The transaction ID to update.
+ * @param {string} statusCode - The new status code to apply.
+ * @returns {Promise<Object>} A service object containing the update result or error details.
+ *
+ * @example
+ * const result = await editTransactionStatusById(10, "COMPLETED");
+ */
 const editTransactionStatusById = async (id, statusCode) => {
-  const [result] = await db.query(
-    `UPDATE transactions
+  try {
+    // Update the transaction’s status based on its ID
+    const [result] = await db.query(
+      `
+      UPDATE transactions
       SET statusCode = ?
-    WHERE id = ?`,
-    [statusCode, id]
-  );
-  return result;
+      WHERE transactionId = ?
+      `,
+      [statusCode, id]
+    );
+
+    return returnServiceObject({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error updating transaction status",
+      error: error
+    });
+  }
 };
 
 module.exports = {
