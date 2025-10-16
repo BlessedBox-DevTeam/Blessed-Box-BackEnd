@@ -1,7 +1,6 @@
 const { newQRCode, compareQRCodeValue } = require("../models/QRCode");
 const QRCode = require("qrcode");
 const argon2 = require("argon2");
-const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**
  * Generates a new QR code image, hashes the value, and stores it in the database.
@@ -25,7 +24,6 @@ async function writeNewQRCode(req, res) {
 
     // Hash the QR value before storing in DB
     const hashedCode = await argon2.hash(qrCodeValue);
-
     const { success, data, message, error } = await newQRCode(hashedCode, 1); // Replace `1` with actual backupKeyId if needed
 
     res.status(201).json(
@@ -60,30 +58,16 @@ async function writeNewQRCode(req, res) {
 async function isQRCodeValueCorrect(req, res) {
   const { qrCodeValue } = req.body;
 
-  try {
-    const { success, data } = await compareQRCodeValue(qrCodeValue);
-
-    const message = data
-      ? "The QR code is correct."
-      : "The QR code is incorrect. Please check and try again.";
-
-    res.json(
-      returnServiceObject({
-        success: true,
-        data: Boolean(data),
-        message
-      })
-    );
-  } catch (error) {
-    res.status(500).json(
-      returnServiceObject({
-        success: false,
-        data: null,
-        message: "Internal server error.",
-        error: error.message
-      })
-    );
+  const compareQRCodeResponse = await compareQRCodeValue(qrCodeValue);
+  if (!compareQRCodeResponse.success) {
+    return res.status(500).json({
+      message: "Internal server error."
+    });
   }
+  res.json({
+    data: Boolean(data),
+    message: "The QR code is incorrect. Please check and try again."
+  });
 }
 
 module.exports = {

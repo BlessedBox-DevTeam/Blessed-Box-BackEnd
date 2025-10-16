@@ -1,5 +1,4 @@
 const { newBackupKey, verifyKey } = require("../models/BackupKey");
-const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**
  * Creates a new backup key and stores it in the database.
@@ -13,25 +12,16 @@ const { returnServiceObject } = require("../helpers/helpers.js");
  */
 async function writeNewBackupKey(req, res) {
   const { keyValue } = req.body;
-  try {
-    await newBackupKey(keyValue);
-    res.status(201).json(
-      returnServiceObject({
-        success: true,
-        data: null,
-        message: "Key generated successfully."
-      })
-    );
-  } catch (error) {
-    res.status(500).json(
-      returnServiceObject({
-        success: false,
-        data: null,
-        message: "Error creating key.",
-        error
-      })
-    );
+  const newBackupKeyResponse = await newBackupKey(keyValue);
+  if (!newBackupKeyResponse.success) {
+    return res.status(500).json({
+      message: "Error creating key."
+    });
   }
+  res.status(201).json({
+    data: newBackupKeyResponse.data,
+    message: "Key generated successfully."
+  });
 }
 
 /**
@@ -46,28 +36,16 @@ async function writeNewBackupKey(req, res) {
  */
 async function isKeyCorrect(req, res) {
   const { keyValue } = req.body;
-  try {
-    const { success, data } = await verifyKey(keyValue);
-    const message = data
-      ? "The manual code is correct."
-      : "The manual code is incorrect. Please check and try again.";
-    res.json(
-      returnServiceObject({
-        success: true,
-        data: Boolean(data),
-        message
-      })
-    );
-  } catch (error) {
-    res.status(500).json(
-      returnServiceObject({
-        success: false,
-        data: null,
-        message: "Internal server error.",
-        error
-      })
-    );
+  const verifyKeyResponse = await verifyKey(keyValue);
+  if (!verifyKeyResponse.success) {
+    return res.status(500).json({
+      message: "Internal server error."
+    });
   }
+  res.status(201).json({
+    data: Boolean(data),
+    message: "The manual code is incorrect. Please check and try again."
+  });
 }
 
 module.exports = {

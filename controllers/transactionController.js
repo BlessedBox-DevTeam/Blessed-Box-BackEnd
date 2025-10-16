@@ -4,7 +4,6 @@ const {
   editTransactionStatusById
 } = require("../models/Transaction");
 const { newBox } = require("../models/Box");
-const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**
  * Creates a new transaction with associated boxes.
@@ -18,40 +17,34 @@ const { returnServiceObject } = require("../helpers/helpers.js");
  */
 async function writeNewTransaction(req, res) {
   const { boxLabels } = req.body;
-  try {
-    // Create the transaction
-    const transactionId = await newTransaction(1, 1, null, 1);
-
-    // Flatten boxes according to quantity
-    const flattenedBoxLabels = boxLabels.flatMap((label) =>
-      Array(label.quantity)
-        .fill(0)
-        .map(() => ({
-          genderId: label.genderId,
-          boxAgeId: label.boxAgeId
-        }))
-    );
-
-    // Insert boxes
-    const newBoxResponse = await newBox(flattenedBoxLabels, transactionId, 1);
-
-    res.status(201).json(
-      returnServiceObject({
-        success: true,
-        data: { transactionId, boxes: newBoxResponse },
-        message: "Your transaction has been made."
-      })
-    );
-  } catch (error) {
-    res.status(500).json(
-      returnServiceObject({
-        success: false,
-        data: null,
-        message: "Your transaction could not be completed.",
-        error: error.message
-      })
-    );
+  // Create the transaction
+  const transactionResponse = await newTransaction(1, 1, null, 1);
+  if (!transactionResponse.success) {
+    return res.status(500).json({
+      message: "Error creating transaction."
+    });
   }
+  const transactionId = transactionResponse.data;
+  // Flatten boxes according to quantity
+  const flattenedBoxLabels = boxLabels.flatMap((label) =>
+    Array(label.quantity)
+      .fill(0)
+      .map(() => ({
+        genderId: label.genderId,
+        boxAgeId: label.boxAgeId
+      }))
+  );
+  // Insert boxes
+  const newBoxResponse = await newBox(flattenedBoxLabels, transactionId, 1);
+  if (!newBoxResponse.success) {
+    return res.status(500).json({
+      message: "Error creating boxes."
+    });
+  }
+  res.status(201).json({
+    data: { transactionId, boxes: newBoxResponse.data },
+    message: "Your transaction has been made."
+  });
 }
 
 /**
@@ -66,27 +59,20 @@ async function writeNewTransaction(req, res) {
  */
 async function getTransactionsByRecollectionCenter(req, res) {
   const recollectionCenterId = Number(req.query.recollectionCenterId);
-  try {
-    const response = await getTransactionsByRecollectionCenterId(
-      recollectionCenterId
-    );
-    res.json(
-      returnServiceObject({
-        success: true,
-        data: response,
-        message: null
-      })
-    );
-  } catch (error) {
-    res.status(500).json(
-      returnServiceObject({
-        success: false,
-        data: null,
-        message: "Internal server error.",
-        error: error.message
-      })
-    );
+  if (isNaN(recollectionCenterId)) {
+    return res.status(400).json({
+      message: "Invalid recollectionCenterId. It must be a number."
+    });
   }
+  const transactionsResponse = await getTransactionsByRecollectionCenterId(
+    recollectionCenterId
+  );
+  if (!transactionsResponse.success) {
+    return res.status(500).json({
+      message: "Error fetching transactions."
+    });
+  }
+  res.json({ data: transactionsResponse.data });
 }
 
 /**
@@ -102,26 +88,19 @@ async function getTransactionsByRecollectionCenter(req, res) {
  */
 async function updateTransactionStatus(req, res) {
   const { transactionId, statusCode } = req.body;
-  try {
-    const response = await editTransactionStatusById(transactionId, statusCode);
-
-    res.json(
-      returnServiceObject({
-        success: true,
-        data: response,
-        message: null
-      })
-    );
-  } catch (error) {
-    res.status(500).json(
-      returnServiceObject({
-        success: false,
-        data: null,
-        message: "Internal server error.",
-        error: error.message
-      })
-    );
+  const editTransactionResponse = await editTransactionStatusById(
+    transactionId,
+    statusCode
+  );
+  if (!editTransactionResponse.success) {
+    return res.status(500).json({
+      message: "Error updating transaction status."
+    });
   }
+  res.json({
+    data: editTransactionResponse.data,
+    message: "Transaction updated successfully."
+  });
 }
 
 module.exports = {
