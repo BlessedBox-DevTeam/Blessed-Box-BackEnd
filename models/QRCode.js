@@ -8,12 +8,17 @@ const newQRCode = async (hashedCode, backupKeyId) => {
       "INSERT INTO qrcodes (qrCode, backupKeyId) VALUES (?, ?)",
       [hashedCode, backupKeyId]
     );
-
-    return result;
+    return returnServieObject({
+      success: true,
+      data: result
+      });
   } catch (error) {
-    console.error("Error hashing or inserting QR code:", error);
-    throw error;
-  }
+      return returnServieObject({
+      success: false,
+      data: null,
+     message:'Error hashing or inserting QR code',
+     error: error
+  });
 };
 
 // Get all QR codes
@@ -29,16 +34,29 @@ const getQRCodeById = async (id) => {
 };
 
 const compareQRCodeValue = async (codeValue) => {
+  try{
   const [rows] = await db.query(
     "SELECT qrcode FROM qrcodes WHERE isDeleted = 0"
   );
   for (const record of rows) {
     const isMatch = await argon2.verify(record.qrcode, codeValue);
     if (isMatch) {
-      return true;
+      break;
     }
   }
-  return false;
+   return returnServieObject({
+      success: true,
+      data: isMatch
+  });
+}
+  catch(error){
+     return returnServieObject({
+      success: false,
+      data: null,
+     message:'Error comparing qr code',
+     error: error
+  });
+  }
 };
 
 module.exports = {
