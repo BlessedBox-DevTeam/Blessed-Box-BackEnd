@@ -1,5 +1,5 @@
 const db = require("../db.js");
-import { returnServiceObject } from "../helpers/helpers.js";
+const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**
  * Inserts a new transaction record into the database.

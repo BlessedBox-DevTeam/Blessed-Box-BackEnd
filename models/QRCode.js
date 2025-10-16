@@ -1,6 +1,6 @@
 const db = require("../db.js");
 const argon2 = require("argon2");
-import { returnServiceObject } from "../helpers/helpers.js";
+const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**
  * Inserts a new QR code record into the database.
