@@ -1,6 +1,6 @@
 const db = require("../db.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
-import { BETHLEHEM_RECOLLECTION_CENTER_ID } from "../helpers/constants.js";
+const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
 
 /**
  *
