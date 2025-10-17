@@ -17,11 +17,12 @@ const newTransaction = async (
   recollectionCenterId,
   userId,
   emailNotificationId,
-  statusCode
+  statusCode,
+  conn
 ) => {
   try {
     // Insert a new transaction record with provided parameters
-    const [result] = await db.query(
+    const [result] = await conn.query(
       `
       INSERT INTO transactions 
       (recollectionCenterId, createdBy, emailNotificationId, statusCode) 
@@ -79,9 +80,12 @@ const getTransactions = async () => {
  * @example
  * const results = await getTransactionsByRecollectionCenterId(2);
  */
-const getTransactionsByRecollectionCenterId = async (recollectionCenterId) => {
+const getTransactionsByRecollectionCenterId = async (
+  recollectionCenterId,
+  conn
+) => {
   try {
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       `
       SELECT
         t.transactionId,
@@ -130,10 +134,10 @@ const getTransactionsByRecollectionCenterId = async (recollectionCenterId) => {
  * @example
  * const result = await editTransactionStatusById(10, "COMPLETED");
  */
-const editTransactionStatusById = async (id, statusCode) => {
+const editTransactionStatusById = async (id, statusCode, conn) => {
   try {
     // Update the transaction’s status based on its ID
-    const [result] = await db.query(
+    const [result] = await conn.query(
       `
       UPDATE transactions
       SET statusCode = ?
@@ -156,9 +160,49 @@ const editTransactionStatusById = async (id, statusCode) => {
   }
 };
 
+const getTransactionDetailsById = async (transactionId, conn) => {
+  try {
+    const [rows] = await conn.query(
+      `SELECT
+      t.transactionId,
+      t.createdDate,
+      t.statusCode,
+      rc.recollectionCenterName,
+      ud.email,
+      ud.name,
+      ud.middleName,
+      ud.lastName,
+      ud.secondLastName
+      FROM transactions t
+      INNER JOIN usersDetails ud
+        ON ud.userId = t.createdBy
+      INNER JOIN useraccount ua
+        ON ua.accountId = ud.accountId
+        AND ua.isDeleted = 0
+      INNER JOIN recollectionCenters rc
+        ON rc.recollectionCenterId = t.recollectionCenterId
+        AND rc.isDeleted = 0
+      WHERE t.transactionId = ?
+        AND t.isDeleted = 0`,
+      [transactionId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error retrieving transaction details by ID",
+      error: error
+    });
+  }
+};
 module.exports = {
   newTransaction,
   getTransactions,
   getTransactionsByRecollectionCenterId,
-  editTransactionStatusById
+  editTransactionStatusById,
+  getTransactionDetailsById
 };

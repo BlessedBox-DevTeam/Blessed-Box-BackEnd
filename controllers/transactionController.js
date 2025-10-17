@@ -1,10 +1,12 @@
+const db = require("../db.js");
 const {
   newTransaction,
   getTransactionsByRecollectionCenterId,
-  editTransactionStatusById
+  editTransactionStatusById,
+  getTransactionDetailsById
 } = require("../models/Transaction");
-const { newBox } = require("../models/Box");
-
+const { newBox, getBoxesByTransactionId } = require("../models/Box");
+1;
 /**
  * Creates a new transaction with associated boxes.
  *
@@ -16,9 +18,10 @@ const { newBox } = require("../models/Box");
  *
  */
 async function writeNewTransaction(req, res) {
+  const conn = await db.getConnection();
   const { boxLabels } = req.body;
   // Create the transaction
-  const transactionResponse = await newTransaction(1, 1, null, 1);
+  const transactionResponse = await newTransaction(1, 1, null, 1, conn);
   if (!transactionResponse.success) {
     return res.status(500).json({
       message: "Error creating transaction."
@@ -35,14 +38,19 @@ async function writeNewTransaction(req, res) {
       }))
   );
   // Insert boxes
-  const newBoxResponse = await newBox(flattenedBoxLabels, transactionId, 1);
+  const newBoxResponse = await newBox(
+    flattenedBoxLabels,
+    transactionId,
+    1,
+    conn
+  );
   if (!newBoxResponse.success) {
     return res.status(500).json({
       message: "Error creating boxes."
     });
   }
   res.status(201).json({
-    data: { transactionId, boxes: newBoxResponse.data },
+    response: { transactionId, boxes: newBoxResponse.data },
     message: "Your transaction has been made."
   });
 }
@@ -58,6 +66,7 @@ async function writeNewTransaction(req, res) {
  *
  */
 async function getTransactionsByRecollectionCenter(req, res) {
+  const conn = await db.getConnection();
   const recollectionCenterId = Number(req.query.recollectionCenterId);
   if (isNaN(recollectionCenterId)) {
     return res.status(400).json({
@@ -65,14 +74,15 @@ async function getTransactionsByRecollectionCenter(req, res) {
     });
   }
   const transactionsResponse = await getTransactionsByRecollectionCenterId(
-    recollectionCenterId
+    recollectionCenterId,
+    conn
   );
   if (!transactionsResponse.success) {
     return res.status(500).json({
       message: "Error fetching transactions."
     });
   }
-  res.json({ data: transactionsResponse.data });
+  res.json({ response: transactionsResponse.data });
 }
 
 /**
@@ -87,10 +97,12 @@ async function getTransactionsByRecollectionCenter(req, res) {
  *
  */
 async function updateTransactionStatus(req, res) {
+  const conn = await db.getConnection();
   const { transactionId, statusCode } = req.body;
   const editTransactionResponse = await editTransactionStatusById(
     transactionId,
-    statusCode
+    statusCode,
+    conn
   );
   if (!editTransactionResponse.success) {
     return res.status(500).json({
@@ -98,13 +110,44 @@ async function updateTransactionStatus(req, res) {
     });
   }
   res.json({
-    data: editTransactionResponse.data,
+    response: editTransactionResponse.data,
     message: "Transaction updated successfully."
+  });
+}
+
+async function getTransactionDetails(req, res) {
+  const conn = await db.getConnection();
+  const transactionId = Number(req.query.transactionId);
+  if (isNaN(transactionId)) {
+    return res.status(400).json({
+      message: "Invalid transactionId. It must be a number."
+    });
+  }
+  const transactionDetailsResponse = await getTransactionDetailsById(
+    transactionId,
+    conn
+  );
+  console.log(transactionDetailsResponse.data);
+  if (!transactionDetailsResponse.success) {
+    return res.status(500).json({
+      message: "Error fetching transaction details."
+    });
+  }
+  const boxesResponse = await getBoxesByTransactionId(transactionId, conn);
+  console.log(boxesResponse.data);
+  if (!boxesResponse.success) {
+    return res.status(500).json({
+      message: "Error fetching boxes for transaction."
+    });
+  }
+  res.json({
+    response: { ...transactionDetailsResponse.data }
   });
 }
 
 module.exports = {
   writeNewTransaction,
   getTransactionsByRecollectionCenter,
-  updateTransactionStatus
+  updateTransactionStatus,
+  getTransactionDetails
 };

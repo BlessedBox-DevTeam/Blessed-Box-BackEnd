@@ -65,7 +65,7 @@ async function isQRCodeValueCorrect(req, res) {
     });
   }
   res.json({
-    data: Boolean(data),
+    response: Boolean(data),
     message: "The QR code is incorrect. Please check and try again."
   });
 }

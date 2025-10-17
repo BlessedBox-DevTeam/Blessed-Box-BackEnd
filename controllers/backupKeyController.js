@@ -19,7 +19,7 @@ async function writeNewBackupKey(req, res) {
     });
   }
   res.status(201).json({
-    data: newBackupKeyResponse.data,
+    response: newBackupKeyResponse.data,
     message: "Key generated successfully."
   });
 }
@@ -43,7 +43,7 @@ async function isKeyCorrect(req, res) {
     });
   }
   res.status(201).json({
-    data: Boolean(data),
+    response: Boolean(data),
     message: "The manual code is incorrect. Please check and try again."
   });
 }

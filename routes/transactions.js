@@ -11,5 +11,6 @@ router.get(
   "/recollectionCenterTransactions",
   transactionController.getTransactionsByRecollectionCenter
 );
+router.get("/transactionDetails", transactionController.getTransactionDetails);
 
 module.exports = router;

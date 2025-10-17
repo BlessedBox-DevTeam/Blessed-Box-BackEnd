@@ -15,7 +15,7 @@ const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
  * @example
  * const result = await newBox([{ genderId: 1, boxAgeId: 2 }], 101, 5);
  */
-const newBox = async (boxes, transactionId, userId) => {
+const newBox = async (boxes, transactionId, userId, conn) => {
   try {
     // Validate that boxes is a non-empty array
     if (!Array.isArray(boxes) || boxes.length === 0) {
@@ -71,16 +71,21 @@ const newBox = async (boxes, transactionId, userId) => {
  * @example
  * const boxes = await getBoxesByTransactionId(101);
  */
-const getBoxesByTransactionId = async (id) => {
+const getBoxesByTransactionId = async (id, conn) => {
   try {
+    console.log(typeof id);
     // Query database for boxes related to the given transaction ID
     const [rows] = await db.query(
-      "SELECT * FROM boxes WHERE transactionId = ?",
+      `SELECT
+       *
+      FROM boxes 
+      WHERE transactionId = ?`,
       [id]
     );
+    console.log(rows);
     return returnServiceObject({
       success: true,
-      data: rows[0] || null
+      data: rows
     });
   } catch (error) {
     return returnServiceObject({
