@@ -127,21 +127,22 @@ async function getTransactionDetails(req, res) {
     transactionId,
     conn
   );
-  console.log(transactionDetailsResponse.data);
   if (!transactionDetailsResponse.success) {
     return res.status(500).json({
       message: "Error fetching transaction details."
     });
   }
   const boxesResponse = await getBoxesByTransactionId(transactionId, conn);
-  console.log(boxesResponse.data);
   if (!boxesResponse.success) {
     return res.status(500).json({
       message: "Error fetching boxes for transaction."
     });
   }
   res.json({
-    response: { ...transactionDetailsResponse.data }
+    response: {
+      transactionDetails: transactionDetailsResponse.data,
+      boxes: boxesResponse.data
+    }
   });
 }
 

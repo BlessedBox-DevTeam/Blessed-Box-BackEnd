@@ -46,7 +46,7 @@ const newBox = async (boxes, transactionId, userId, conn) => {
       VALUES ${placeholders};
     `;
 
-    const [result] = await db.query(query, values);
+    const [result] = await conn.query(query, values);
 
     return returnServiceObject({
       success: true,
@@ -73,16 +73,19 @@ const newBox = async (boxes, transactionId, userId, conn) => {
  */
 const getBoxesByTransactionId = async (id, conn) => {
   try {
-    console.log(typeof id);
     // Query database for boxes related to the given transaction ID
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       `SELECT
-       *
-      FROM boxes 
+       b.boxId,
+       b.genderId,
+       ba.description AS age
+      FROM boxes b
+      LEFT JOIN boxages ba
+        ON ba.boxAgeId = b.boxAgeId
+        AND ba.isDeleted = 0
       WHERE transactionId = ?`,
       [id]
     );
-    console.log(rows);
     return returnServiceObject({
       success: true,
       data: rows

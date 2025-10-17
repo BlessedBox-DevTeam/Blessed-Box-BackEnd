@@ -165,7 +165,7 @@ const getTransactionDetailsById = async (transactionId, conn) => {
     const [rows] = await conn.query(
       `SELECT
       t.transactionId,
-      t.createdDate,
+      t.createdDate AS transactionDate,
       t.statusCode,
       rc.recollectionCenterName,
       ud.email,
@@ -188,7 +188,7 @@ const getTransactionDetailsById = async (transactionId, conn) => {
     );
     return returnServiceObject({
       success: true,
-      data: rows
+      data: rows[0] || null
     });
   } catch (error) {
     return returnServiceObject({

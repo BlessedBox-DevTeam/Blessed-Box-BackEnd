@@ -43,7 +43,7 @@ async function isKeyCorrect(req, res) {
     });
   }
   res.status(201).json({
-    response: Boolean(data),
+    response: Boolean(verifyKeyResponse.data),
     message: "The manual code is incorrect. Please check and try again."
   });
 }
