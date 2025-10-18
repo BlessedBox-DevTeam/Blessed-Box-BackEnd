@@ -1,6 +1,11 @@
-const { create, findByCredentials } = require("../models/User");
+const {
+  create,
+  findByCredentials,
+  getUserRolesByUserId
+} = require("../models/User");
 const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
+const db = require("../db.js");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -20,8 +25,9 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
+  const conn = await db.getConnection();
   const { email, password } = req.body;
-  const { success, data, error } = await findByCredentials(email);
+  const { success, data, error } = await findByCredentials(email, conn);
   if (!success) {
     return res.status(500).json({
       error: error,
@@ -40,9 +46,16 @@ async function login(req, res) {
       message: "Your email or password is incorrect."
     });
   }
+  const rolesResponse = await getUserRolesByUserId(data.userId, conn);
+  if (!rolesResponse.success) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error."
+    });
+  }
   // Firmar el token
   const token = jwt.sign(
-    { userId: data.userId, email: data.email },
+    { userId: data.userId, email: data.email, roles: rolesResponse.data },
     JWT_SECRET,
     { expiresIn: "1h" } // puedes ajustar la expiración
   );
@@ -50,7 +63,7 @@ async function login(req, res) {
     success: true,
     message: "Login exitoso",
     token,
-    user: { userId: data.userId, email: data.email }
+    user: { userId: data.userId, email: data.email, roles: rolesResponse.data }
   });
 }
 

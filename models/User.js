@@ -40,7 +40,40 @@ const findByCredentials = async (email) => {
   }
 };
 
+const getUserRolesByUserId = async (userId) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT
+        ar.roleTypeId AS roleId,
+        rt.description AS roleName
+      FROM accountroles ar
+      INNER JOIN roleTypes rt
+        ON rt.roleTypeId = ar.roleTypeId
+        AND rt.isDeleted = 0
+      INNER JOIN useraccount ua
+        ON ua.accountId = ar.accountId
+        AND ua.isDeleted = 0
+      INNER JOIN usersDetails ud
+        ON ud.accountId = ua.accountId
+      WHERE ud.userId = ?`,
+      [userId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows || null
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error finding user",
+      error: error
+    });
+  }
+};
+
 module.exports = {
   create,
-  findByCredentials
+  findByCredentials,
+  getUserRolesByUserId
 };
