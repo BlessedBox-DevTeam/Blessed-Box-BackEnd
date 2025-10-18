@@ -1,34 +1,47 @@
-const socketIO = require('socket.io');
+const socketIO = require("socket.io");
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = process.env.JWT_SECRET;
 
-module.exports = function(server) {
-  const io = socketIO(server, {
-    cors: {
-      origin: '*',
+module.exports = function (server, db) {
+  const io = socketIO(server, { cors: { origin: "*" } });
+
+  io.use(async (socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("Token missing"));
+
+    try {
+      const payload = jwt.verify(token, JWT_SECRET);
+      socket.userId = payload.userId;
+      socket.email = payload.email;
+      next();
+    } catch (err) {
+      next(new Error("Invalid token"));
     }
   });
 
-  io.on('connection', (socket) => {
-    const { userId, email } = socket.handshake.auth;
-    console.log(`Usuario conectado: ${email} (ID: ${userId})`);
+  io.on("connection", async (socket) => {
+    // 1. Desconectar sesión anterior
+    const [session] = await db.query(
+      "SELECT socketId FROM usersessions WHERE userId = ?",
+      [socket.userId]
+    );
+    if (session?.socket_id && io.sockets.sockets.get(session.socket_id)) {
+      io.sockets.sockets.get(session.socket_id).disconnect(true);
+    }
 
-    // Puedes guardar el usuario en el socket para usarlo más tarde
-    socket.userId = userId;
-    socket.email = email;
+    // 2. Guardar nueva sesión
+    await db.query(
+      "INSERT INTO usersessions (userId, socketId) VALUES (?, ?) ON DUPLICATE KEY UPDATE socketId = ?, last_connected = NOW()",
+      [socket.userId, socket.id, socket.id]
+    );
 
-    socket.on('chatMessage', (data) => {
-      // Añadir automáticamente el nombre del usuario al mensaje
-      const messageWithUser = {
-        email: socket.email,
-        message: data.message
-      };
-      io.emit('chatMessage', messageWithUser);
-    });
-
-    socket.on('disconnect', () => {
-      console.log(`Desconectado: ${socket.email}`);
+    socket.on("disconnect", async () => {
+      await db.query(
+        "DELETE FROM usersessions WHERE userId = ? AND socketId = ?",
+        [socket.userId, socket.id]
+      );
     });
   });
 
   return io;
 };
-
