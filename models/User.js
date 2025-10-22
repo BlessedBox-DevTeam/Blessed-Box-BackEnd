@@ -72,8 +72,87 @@ const getUserRolesByUserId = async (userId) => {
   }
 };
 
+const saveRefreshToken = async (
+  userId,
+  refreshTokenHash,
+  expiresAt,
+  deviceInfo,
+  ipAddress,
+  conn
+) => {
+  try {
+    const response = await conn.query(
+      `INSERT INTO refreshtokens 
+        (userId, refreshTokenHash, expiresAt, deviceInfo, ipAddress) 
+        VALUES (?, ?, ?, ?, ?)`,
+      [
+        userId,
+        refreshTokenHash,
+        expiresAt,
+        deviceInfo || null,
+        ipAddress || null
+      ]
+    );
+    return returnServiceObject({
+      success: true,
+      data: response
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error on inserting token",
+      error: error
+    });
+  }
+};
+const getRefreshTokenByUserId = async (userId, conn) => {
+  try {
+    const [rows] = await conn.query(
+      "SELECT * FROM refreshtokens WHERE userId = ? AND isRevoked = 0 ORDER BY createdAt DESC LIMIT 1",
+      [userId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows[0]
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error on getting refresh token",
+      error: error
+    });
+  }
+};
+const revokedRefreshToken = async (userId, conn) => {
+  try {
+    const [row] = await conn.query(
+      `UPDATE refreshtokens 
+      SET isRevoked = 1
+      WHERE userId = ? 
+      AND isRevoked = 0`,
+      [userId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: row
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error on deleting refresh token",
+      error: error
+    });
+  }
+};
+
 module.exports = {
   create,
   findByCredentials,
-  getUserRolesByUserId
+  getUserRolesByUserId,
+  saveRefreshToken,
+  getRefreshTokenByUserId,
+  revokedRefreshToken
 };
