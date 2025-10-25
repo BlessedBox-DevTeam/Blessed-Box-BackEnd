@@ -83,7 +83,7 @@ const saveRefreshToken = async (
   try {
     const response = await conn.query(
       `INSERT INTO refreshtokens 
-        (userId, refreshTokenHash, expiresAt, deviceInfo, ipAddress) 
+        (userId, tokenHash, expiresAt, deviceName, ipAddress) 
         VALUES (?, ?, ?, ?, ?)`,
       [
         userId,
@@ -109,7 +109,7 @@ const saveRefreshToken = async (
 const getRefreshTokenByUserId = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
-      "SELECT * FROM refreshtokens WHERE userId = ? AND isRevoked = 0 ORDER BY createdAt DESC LIMIT 1",
+      "SELECT * FROM refreshtokens WHERE userId = ? AND isRevoked = 0 ORDER BY createdDate DESC LIMIT 1",
       [userId]
     );
     return returnServiceObject({

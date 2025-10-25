@@ -85,8 +85,8 @@ async function login(req, res) {
       data.userId,
       refreshTokenHash,
       expiresAt,
-      deviceInfo,
-      ipAddress,
+      null,
+      null,
       conn
     );
     if (!saveResponse.success) {
@@ -149,10 +149,7 @@ async function refreshToken(req, res) {
     });
   }
   // Compare hashed refresh token
-  const isValid = await argon2.verify(
-    tokenRecord.refreshTokenHash,
-    refreshToken
-  );
+  const isValid = await argon2.verify(tokenRecord.tokenHash, refreshToken);
   if (!isValid) {
     return res.status(401).json({
       success: false,
