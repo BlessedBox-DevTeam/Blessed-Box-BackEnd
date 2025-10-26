@@ -82,8 +82,12 @@ const getTransactions = async () => {
  */
 const getTransactionsByRecollectionCenterId = async (
   recollectionCenterId,
-  conn
+  conn,
+  page = 1
 ) => {
+  const pageSize = 10;
+  const offset = (page - 1) * pageSize;
+
   try {
     const [rows] = await conn.query(
       `
@@ -106,13 +110,22 @@ const getTransactionsByRecollectionCenterId = async (
       WHERE t.recollectionCenterId = ?
         AND t.isDeleted = 0
       GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
-      `,
+      ORDER BY t.createdDate DESC
+      LIMIT ? OFFSET ?`,
+      [recollectionCenterId, pageSize, offset]
+    );
+
+    // totalCount para el frontend
+    const [[{ totalCount }]] = await conn.query(
+      `SELECT COUNT(*) AS totalCount
+       FROM transactions
+       WHERE recollectionCenterId = ? AND isDeleted = 0`,
       [recollectionCenterId]
     );
 
     return returnServiceObject({
       success: true,
-      data: rows || null
+      data: { transactions: rows, totalCount: totalCount } || null
     });
   } catch (error) {
     return returnServiceObject({

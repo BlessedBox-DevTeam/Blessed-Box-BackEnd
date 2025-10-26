@@ -68,6 +68,7 @@ async function writeNewTransaction(req, res) {
 async function getTransactionsByRecollectionCenter(req, res) {
   const conn = await db.getConnection();
   const recollectionCenterId = Number(req.query.recollectionCenterId);
+  const page = Number(req.query.page);
   if (isNaN(recollectionCenterId)) {
     return res.status(400).json({
       message: "Invalid recollectionCenterId. It must be a number."
@@ -75,8 +76,10 @@ async function getTransactionsByRecollectionCenter(req, res) {
   }
   const transactionsResponse = await getTransactionsByRecollectionCenterId(
     recollectionCenterId,
-    conn
+    conn,
+    page
   );
+  console.log(transactionsResponse);
   if (!transactionsResponse.success) {
     return res.status(500).json({
       message: "Error fetching transactions."
