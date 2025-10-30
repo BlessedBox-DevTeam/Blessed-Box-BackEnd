@@ -6,6 +6,11 @@ const {
   getTransactionDetailsById
 } = require("../models/Transaction");
 const { newBox, getBoxesByTransactionId } = require("../models/Box");
+const {
+  BETHLEHEM_RECOLLECTION_CENTER_ID,
+  GENDER_MAP,
+  AGE_MAP
+} = require("../helpers/constants.js");
 1;
 /**
  * Creates a new transaction with associated boxes.
@@ -67,8 +72,39 @@ async function writeNewTransaction(req, res) {
  */
 async function getTransactionsByRecollectionCenter(req, res) {
   const conn = await db.getConnection();
-  const recollectionCenterId = Number(req.query.recollectionCenterId);
-  const page = Number(req.query.page);
+
+  const recollectionCenterId =
+    Number(req.query.recollectionCenterId) || BETHLEHEM_RECOLLECTION_CENTER_ID;
+  const page = Number(req.query.page) || 1;
+  const ageFilters = Array.isArray(req.query["ageFilters[]"])
+    ? req.query["ageFilters[]"]
+    : req.query["ageFilters[]"]
+    ? [req.query["ageFilters[]"]]
+    : [];
+  const genderValues = Array.isArray(req.query["genderValues[]"])
+    ? req.query["genderValues[]"]
+    : req.query["genderValues[]"]
+    ? [req.query["genderValues[]"]]
+    : [];
+
+  // Mapear a IDs
+  const ageFiltersIds = ageFilters.flatMap((label) => {
+    const val = AGE_MAP[label];
+    return Array.isArray(val) ? val : val ? [val] : [];
+  });
+  const genderValuesIds = genderValues.flatMap((label) => {
+    const val = GENDER_MAP[label];
+    return Array.isArray(val) ? val : val ? [val] : [];
+  });
+
+  const filterMode = req.query.filterMode;
+  const numberOfBoxes = req.query.numberOfBoxes
+    ? Number(req.query.numberOfBoxes)
+    : null;
+  const maxNumberOfBoxes = req.query.maxNumberOfBoxes
+    ? Number(req.query.maxNumberOfBoxes)
+    : null;
+
   if (isNaN(recollectionCenterId)) {
     return res.status(400).json({
       message: "Invalid recollectionCenterId. It must be a number."
@@ -76,8 +112,13 @@ async function getTransactionsByRecollectionCenter(req, res) {
   }
   const transactionsResponse = await getTransactionsByRecollectionCenterId(
     recollectionCenterId,
-    conn,
-    page
+    page,
+    filterMode,
+    numberOfBoxes,
+    maxNumberOfBoxes,
+    ageFiltersIds,
+    genderValuesIds,
+    conn
   );
   console.log(transactionsResponse);
   if (!transactionsResponse.success) {

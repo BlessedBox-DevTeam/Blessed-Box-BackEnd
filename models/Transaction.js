@@ -82,13 +82,54 @@ const getTransactions = async () => {
  */
 const getTransactionsByRecollectionCenterId = async (
   recollectionCenterId,
-  conn,
-  page = 1
+  page = 1,
+  filterMode = null,
+  numberOfBoxes = null,
+  maxNumberOfBoxes = null,
+  ageFiltersIds = [],
+  genderValuesIds = [],
+  conn
 ) => {
   const pageSize = 10;
   const offset = (page - 1) * pageSize;
 
   try {
+    let whereClauses = ["t.recollectionCenterId = ?", "t.isDeleted = 0"];
+    let havingClauses = [];
+    let params = [recollectionCenterId];
+
+    // Filtrar por edad si hay IDs
+    if (ageFiltersIds.length) {
+      whereClauses.push(`b.boxAge IN (?)`);
+      params.push(ageFiltersIds);
+    }
+
+    // Filtrar por género si hay IDs
+    if (genderValuesIds.length) {
+      whereClauses.push(`b.genderId IN (?)`);
+      params.push(genderValuesIds);
+    }
+
+    // Filtrar por número de cajas según modo
+    if (filterMode === "exact" && numberOfBoxes != null) {
+      havingClauses.push(`COUNT(b.boxId) = ?`);
+      params.push(numberOfBoxes);
+    } else if (filterMode === "minimum" && numberOfBoxes != null) {
+      havingClauses.push(`COUNT(b.boxId) >= ?`);
+      params.push(numberOfBoxes);
+    } else if (filterMode === "maximum" && numberOfBoxes != null) {
+      havingClauses.push(`COUNT(b.boxId) <= ?`);
+      params.push(numberOfBoxes);
+    } else if (
+      filterMode === "range" &&
+      numberOfBoxes != null &&
+      maxNumberOfBoxes != null
+    ) {
+      havingClauses.push(`COUNT(b.boxId) BETWEEN ? AND ?`);
+      params.push(numberOfBoxes, maxNumberOfBoxes);
+    }
+
+    // Query principal
     const [rows] = await conn.query(
       `
       SELECT
@@ -107,22 +148,22 @@ const getTransactionsByRecollectionCenterId = async (
       INNER JOIN recollectionCenters rc
         ON rc.recollectionCenterId = t.recollectionCenterId
         AND rc.isDeleted = 0
-      WHERE t.recollectionCenterId = ?
-        AND t.isDeleted = 0
+      WHERE ${whereClauses.join(" AND ")}
       GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
+      ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
       ORDER BY t.createdDate DESC
-      LIMIT ? OFFSET ?`,
-      [recollectionCenterId, pageSize, offset]
+      LIMIT ? OFFSET ?
+      `,
+      [...params, pageSize, offset]
     );
 
-    // totalCount para el frontend
+    // Total count para paginación (sin filtro de cajas)
     const [[{ totalCount }]] = await conn.query(
       `SELECT COUNT(*) AS totalCount
        FROM transactions
        WHERE recollectionCenterId = ? AND isDeleted = 0`,
       [recollectionCenterId]
     );
-
     return returnServiceObject({
       success: true,
       data: { transactions: rows, totalCount: totalCount } || null

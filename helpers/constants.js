@@ -1,1 +1,23 @@
 export const BETHLEHEM_RECOLLECTION_CENTER_ID = 1;
+// GENDER IDS
+export const MALE_GENDER_ID = 1;
+export const FEMALE_GENDER_ID = 2;
+
+// BOX AGE IDS
+export const TWO_TO_FOUR_YEARS_ID = 1;
+export const FIVE_TO_NINE_YEARS_ID = 2;
+export const TEN_TO_FOURTEEN_YEARS_ID = 3;
+
+export const AGE_MAP = {
+  "2-4": TWO_TO_FOUR_YEARS_ID,
+  "5-9": FIVE_TO_NINE_YEARS_ID,
+  "10-14": TEN_TO_FOURTEEN_YEARS_ID,
+  All: [TWO_TO_FOUR_YEARS_ID, FIVE_TO_NINE_YEARS_ID, TEN_TO_FOURTEEN_YEARS_ID]
+};
+
+export const GENDER_MAP = {
+  Male: MALE_GENDER_ID,
+  Female: FEMALE_GENDER_ID,
+  Unlabeled: null,
+  All: [MALE_GENDER_ID, FEMALE_GENDER_ID]
+};
