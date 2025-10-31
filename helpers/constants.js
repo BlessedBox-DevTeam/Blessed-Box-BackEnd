@@ -2,6 +2,7 @@ export const BETHLEHEM_RECOLLECTION_CENTER_ID = 1;
 // GENDER IDS
 export const MALE_GENDER_ID = 1;
 export const FEMALE_GENDER_ID = 2;
+export const UNLABELED_GENDER_ID = 3;
 
 // BOX AGE IDS
 export const TWO_TO_FOUR_YEARS_ID = 1;
@@ -18,6 +19,11 @@ export const AGE_MAP = {
 export const GENDER_MAP = {
   Male: MALE_GENDER_ID,
   Female: FEMALE_GENDER_ID,
-  Unlabeled: null,
-  All: [MALE_GENDER_ID, FEMALE_GENDER_ID]
+  Unlabeled: UNLABELED_GENDER_ID,
+  All: [MALE_GENDER_ID, FEMALE_GENDER_ID, UNLABELED_GENDER_ID]
 };
+
+// TRANSACTION STATUS IDS
+export const PENDING_STATUS_ID = 1;
+export const COMPLETED_STATUS_ID = 2;
+export const DECLINED_STATUS_ID = 3;

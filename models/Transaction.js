@@ -1,4 +1,5 @@
 const db = require("../db.js");
+const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**
@@ -80,18 +81,21 @@ const getTransactions = async () => {
  * @example
  * const results = await getTransactionsByRecollectionCenterId(2);
  */
-const getTransactionsByRecollectionCenterId = async (
-  recollectionCenterId,
+const getTransactionsByRecollectionCenterId = async ({
+  recollectionCenterId = BETHLEHEM_RECOLLECTION_CENTER_ID,
   page = 1,
-  filterMode = null,
-  numberOfBoxes = null,
-  maxNumberOfBoxes = null,
+  selectedDate,
+  filterMode,
+  numberOfBoxes,
+  maxNumberOfBoxes,
   ageFiltersIds = [],
   genderValuesIds = [],
   conn
-) => {
+} = {}) => {
   const pageSize = 10;
   const offset = (page - 1) * pageSize;
+
+  console.log(filterMode, numberOfBoxes, ageFiltersIds, genderValuesIds);
 
   try {
     let whereClauses = ["t.recollectionCenterId = ?", "t.isDeleted = 0"];
@@ -100,7 +104,7 @@ const getTransactionsByRecollectionCenterId = async (
 
     // Filtrar por edad si hay IDs
     if (ageFiltersIds.length) {
-      whereClauses.push(`b.boxAge IN (?)`);
+      whereClauses.push(`b.boxAgeId IN (?)`);
       params.push(ageFiltersIds);
     }
 
@@ -108,6 +112,13 @@ const getTransactionsByRecollectionCenterId = async (
     if (genderValuesIds.length) {
       whereClauses.push(`b.genderId IN (?)`);
       params.push(genderValuesIds);
+    }
+
+    // If there is a selectedDate
+    if (selectedDate) {
+      console.log(selectedDate);
+      whereClauses.push(`t.createdDate BETWEEN ? AND ?`);
+      params.push(selectedDate, selectedDate.replace("00:00:00", "23:59:59"));
     }
 
     // Filtrar por número de cajas según modo
@@ -159,10 +170,18 @@ const getTransactionsByRecollectionCenterId = async (
 
     // Total count para paginación (sin filtro de cajas)
     const [[{ totalCount }]] = await conn.query(
-      `SELECT COUNT(*) AS totalCount
-       FROM transactions
-       WHERE recollectionCenterId = ? AND isDeleted = 0`,
-      [recollectionCenterId]
+      ` SELECT COUNT(*) AS totalCount
+        FROM (
+          SELECT t.transactionId
+          FROM transactions t
+          INNER JOIN boxes b
+          ON b.transactionId = t.transactionId
+          AND b.isDeleted = 0
+          WHERE ${whereClauses.join(" AND ")}
+          GROUP BY t.transactionId
+          ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
+        ) AS filteredTransactions`,
+      params
     );
     return returnServiceObject({
       success: true,

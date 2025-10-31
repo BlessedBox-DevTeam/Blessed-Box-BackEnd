@@ -39,6 +39,7 @@ app.use("/api/backupKeys", require("./routes/backupKeys"));
 app.use("/api/qrCodes", require("./routes/qrCodes"));
 app.use("/api/recollectionCenters", require("./routes/recollectionCenters"));
 app.use("/api/transactions", require("./routes/transactions"));
+app.use("/api/boxes", require("./routes/boxes"));
 
 // Health check (verifica servidor y DB)
 app.get("/health", async (req, res) => {

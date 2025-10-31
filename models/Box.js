@@ -1,6 +1,12 @@
 const db = require("../db.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
-const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
+const {
+  BETHLEHEM_RECOLLECTION_CENTER_ID,
+  COMPLETED_STATUS_ID,
+  FEMALE_GENDER_ID,
+  MALE_GENDER_ID,
+  UNLABELED_GENDER_ID
+} = require("../helpers/constants.js");
 
 /**
  *
@@ -73,7 +79,6 @@ const newBox = async (boxes, transactionId, userId, conn) => {
  */
 const getBoxesByTransactionId = async (id, conn) => {
   try {
-    // Query database for boxes related to the given transaction ID
     const [rows] = await conn.query(
       `SELECT
        b.boxId,
@@ -99,8 +104,45 @@ const getBoxesByTransactionId = async (id, conn) => {
     });
   }
 };
+const getDepositedBoxesCountByUserId = async (userId, conn) => {
+  console.log(userId);
+  try {
+    const [rows] = await conn.query(
+      `SELECT
+        COUNT(*) AS totalBoxes,
+        SUM(CASE WHEN b.genderId = ? THEN 1 ELSE 0 END) AS femaleBoxes,
+        SUM(CASE WHEN b.genderId = ? THEN 1 ELSE 0 END) AS maleBoxes,
+        SUM(CASE WHEN b.genderId = ? THEN 1 ELSE 0 END) AS unlabeledBoxes
+      FROM boxes b
+      INNER JOIN transactions t
+        ON t.transactionId = b.transactionId
+        AND t.isDeleted = 0
+        AND t.statusCode = ?
+      WHERE b.createdBy = ?`,
+      [
+        FEMALE_GENDER_ID,
+        MALE_GENDER_ID,
+        UNLABELED_GENDER_ID,
+        COMPLETED_STATUS_ID,
+        userId
+      ]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows[0]
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error getting boxes by transactionId",
+      error: error
+    });
+  }
+};
 
 module.exports = {
   newBox,
-  getBoxesByTransactionId
+  getBoxesByTransactionId,
+  getDepositedBoxesCountByUserId
 };
