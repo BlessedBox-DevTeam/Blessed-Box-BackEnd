@@ -135,7 +135,37 @@ const getDepositedBoxesCountByUserId = async (userId, conn) => {
     return returnServiceObject({
       success: false,
       data: null,
-      message: "Error getting boxes by transactionId",
+      message: "Error getting boxes by userId",
+      error: error
+    });
+  }
+};
+const getBoxesCountByRecollectionCenterId = async (
+  recollectionCenterId,
+  conn
+) => {
+  console.log(recollectionCenterId);
+  try {
+    const [rows] = await conn.query(
+      `SELECT
+        COUNT(*) AS totalBoxes
+      FROM boxes b
+      INNER JOIN transactions t
+        ON t.transactionId = b.transactionId
+        AND t.isDeleted = 0
+        AND t.statusCode = ?
+      WHERE t.recollectionCenterId = ?`,
+      [COMPLETED_STATUS_ID, recollectionCenterId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows[0]
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error getting boxes by recollectionCenterId",
       error: error
     });
   }
@@ -144,5 +174,6 @@ const getDepositedBoxesCountByUserId = async (userId, conn) => {
 module.exports = {
   newBox,
   getBoxesByTransactionId,
-  getDepositedBoxesCountByUserId
+  getDepositedBoxesCountByUserId,
+  getBoxesCountByRecollectionCenterId
 };

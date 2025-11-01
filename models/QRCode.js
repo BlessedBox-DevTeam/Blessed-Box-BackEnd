@@ -114,7 +114,6 @@ const compareQRCodeValue = async (codeValue) => {
         break;
       }
     }
-
     return returnServiceObject({
       success: true,
       data: isMatch

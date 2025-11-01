@@ -34,3 +34,32 @@ export function toMySQLDateTime(dateInput) {
     date.getDate()
   )} 00:00:00`;
 }
+
+export function validateEmail(email = "") {
+  if (!email) return { valid: false };
+
+  const normalized = email.trim().toLowerCase();
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  return { valid: regex.test(normalized), normalized };
+}
+export function formatNamesToTitleCase({
+  name = "",
+  middleName = "",
+  lastName = "",
+  secondLastName = ""
+}) {
+  const toTitleCase = (str) =>
+    str
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+
+  return {
+    name: toTitleCase(name),
+    middleName: toTitleCase(middleName),
+    lastName: toTitleCase(lastName),
+    secondLastName: toTitleCase(secondLastName)
+  };
+}

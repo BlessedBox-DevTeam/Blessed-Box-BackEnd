@@ -9,10 +9,20 @@ const { newBox, getBoxesByTransactionId } = require("../models/Box");
 const {
   BETHLEHEM_RECOLLECTION_CENTER_ID,
   GENDER_MAP,
-  AGE_MAP
+  AGE_MAP,
+  PENDING_STATUS_ID,
+  COMPLETED_STATUS_ID,
+  ADMIN_ROLE_TYPE_ID
 } = require("../helpers/constants.js");
 const { toMySQLDateTime } = require("../helpers/helpers.js");
-1;
+const jwt = require("jsonwebtoken");
+
+const JWT_SECRET = process.env.JWT_SECRET;
+// const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET no está definido. Configura tu archivo .env");
+}
+
 /**
  * Creates a new transaction with associated boxes.
  *
@@ -24,11 +34,36 @@ const { toMySQLDateTime } = require("../helpers/helpers.js");
  *
  */
 async function writeNewTransaction(req, res) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) return res.status(401).json({ message: "Access token missing" });
+  let payload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.log(err);
+    return res.status(401).json({ message: "Invalid or expired access token" });
+  }
+
+  let userId = payload.userId;
   const conn = await db.getConnection();
+  await conn.beginTransaction();
   const { boxLabels } = req.body;
+
   // Create the transaction
-  const transactionResponse = await newTransaction(1, 1, null, 1, conn);
+  const transactionResponse = await newTransaction(
+    BETHLEHEM_RECOLLECTION_CENTER_ID,
+    userId,
+    null,
+    payload.roles.some((role) => role.roleId === ADMIN_ROLE_TYPE_ID)
+      ? COMPLETED_STATUS_ID
+      : PENDING_STATUS_ID,
+    conn
+  );
   if (!transactionResponse.success) {
+    await conn.rollback();
+    conn.release();
     return res.status(500).json({
       message: "Error creating transaction."
     });
@@ -47,14 +82,18 @@ async function writeNewTransaction(req, res) {
   const newBoxResponse = await newBox(
     flattenedBoxLabels,
     transactionId,
-    1,
+    1, //TODO: remove 1
     conn
   );
   if (!newBoxResponse.success) {
+    await conn.rollback();
+    conn.release();
     return res.status(500).json({
       message: "Error creating boxes."
     });
   }
+  conn.commit();
+  conn.release();
   res.status(201).json({
     response: { transactionId, boxes: newBoxResponse.data },
     message: "Your transaction has been made."
@@ -126,6 +165,7 @@ async function getTransactionsByRecollectionCenter(req, res) {
       message: "Error fetching transactions."
     });
   }
+  conn.release();
   res.json({ response: transactionsResponse.data });
 }
 
@@ -142,6 +182,8 @@ async function getTransactionsByRecollectionCenter(req, res) {
  */
 async function updateTransactionStatus(req, res) {
   const conn = await db.getConnection();
+  await conn.beginTransaction();
+
   const { transactionId, statusCode } = req.body;
   const editTransactionResponse = await editTransactionStatusById(
     transactionId,
@@ -149,10 +191,14 @@ async function updateTransactionStatus(req, res) {
     conn
   );
   if (!editTransactionResponse.success) {
+    await conn.rollback();
+    conn.release();
     return res.status(500).json({
       message: "Error updating transaction status."
     });
   }
+  conn.commit();
+  conn.release();
   res.json({
     response: editTransactionResponse.data,
     message: "Transaction updated successfully."
@@ -182,6 +228,7 @@ async function getTransactionDetails(req, res) {
       message: "Error fetching boxes for transaction."
     });
   }
+  conn.release();
   res.json({
     response: {
       transactionDetails: transactionDetailsResponse.data,

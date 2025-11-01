@@ -1,20 +1,77 @@
 const db = require("../db.js");
+const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
 
-const create = async (username, password, email) => {
+const newAccount = async (conn) => {
   try {
-    const [result] = await db.query(
-      "INSERT INTO users (username, password, email) VALUES (?, ?, ?)",
-      [username, password, email]
-    );
+    const [result] = await conn.query(`INSERT INTO useraccount () VALUES ()`);
+    console.log("New accountId:", result.insertId);
     return returnServiceObject({
       success: true,
-      data: result
+      data: result.insertId
     });
   } catch (error) {
     return returnServiceObject({
       success: false,
       data: null,
+      message: "Error inserting new user",
+      error: error
+    });
+  }
+};
+const newUserDetails = async (
+  passwordHash,
+  email,
+  name,
+  middleName,
+  lastName,
+  secondLastName,
+  accountId,
+  conn
+) => {
+  try {
+    const [result] = await conn.query(
+      `INSERT INTO usersdetails 
+      (passwordHash, email, name, middleName, lastName, secondLastName, accountId, recollectionCenterId)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        passwordHash,
+        email,
+        name,
+        middleName,
+        lastName,
+        secondLastName,
+        accountId,
+        BETHLEHEM_RECOLLECTION_CENTER_ID
+      ]
+    );
+    return returnServiceObject({
+      success: true,
+      data: result.insertId
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      message: "Error inserting new user",
+      error: error
+    });
+  }
+};
+const newUserRole = async (accountId, roleId, conn) => {
+  try {
+    const [result] = await conn.query(
+      `INSERT INTO accountroles 
+      (accountId, roleTypeId)
+       VALUES (?, ?)`,
+      [accountId, roleId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: result.insertId
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
       message: "Error inserting new user",
       error: error
     });
@@ -149,7 +206,9 @@ const revokedRefreshToken = async (userId, conn) => {
 };
 
 module.exports = {
-  create,
+  newAccount,
+  newUserDetails,
+  newUserRole,
   findByCredentials,
   getUserRolesByUserId,
   saveRefreshToken,

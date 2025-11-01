@@ -15,34 +15,28 @@ const argon2 = require("argon2");
 async function writeNewQRCode(req, res) {
   const { qrCodeValue } = req.body;
 
-  try {
-    // Generate QR image file
-    await QRCode.toFile("./QR.png", qrCodeValue, {
-      color: { dark: "#000", light: "#FFF" },
-      width: 300
+  // Hash the QR value before storing in DB
+  const hashedCode = await argon2.hash(qrCodeValue);
+
+  // Generate QR image file
+  await QRCode.toFile("./QR.png", qrCodeValue, {
+    color: { dark: "#000", light: "#FFF" },
+    width: 300
+  });
+
+  const { success, data, message, error } = await newQRCode(hashedCode, 3); // Replace `number` with actual backupKeyId if needed
+  if (!success) {
+    return res.status(500).json({
+      success: false,
+      data: null,
+      message: "Error creating QR code.",
+      error: error
     });
-
-    // Hash the QR value before storing in DB
-    const hashedCode = await argon2.hash(qrCodeValue);
-    const { success, data, message, error } = await newQRCode(hashedCode, 1); // Replace `1` with actual backupKeyId if needed
-
-    res.status(201).json(
-      returnServiceObject({
-        success: true,
-        data: data,
-        message: "QR code generated successfully."
-      })
-    );
-  } catch (error) {
-    res.status(500).json(
-      returnServiceObject({
-        success: false,
-        data: null,
-        message: "Error creating QR code.",
-        error: error.message
-      })
-    );
   }
+  res.status(201).json({
+    response: true,
+    message: "QR code generated successfully."
+  });
 }
 
 /**
@@ -57,7 +51,6 @@ async function writeNewQRCode(req, res) {
  */
 async function isQRCodeValueCorrect(req, res) {
   const { qrCodeValue } = req.body;
-
   const compareQRCodeResponse = await compareQRCodeValue(qrCodeValue);
   if (!compareQRCodeResponse.success) {
     return res.status(500).json({
@@ -65,8 +58,10 @@ async function isQRCodeValueCorrect(req, res) {
     });
   }
   res.json({
-    response: Boolean(data),
-    message: "The QR code is incorrect. Please check and try again."
+    response: Boolean(compareQRCodeResponse.data),
+    message: Boolean(compareQRCodeResponse.data)
+      ? ""
+      : "The QR code is incorrect. Please check and try again."
   });
 }
 

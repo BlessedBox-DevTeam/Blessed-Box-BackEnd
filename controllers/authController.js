@@ -1,14 +1,21 @@
 const {
-  create,
+  newUserDetails,
   findByCredentials,
   getUserRolesByUserId,
   saveRefreshToken,
   getRefreshTokenByUserId,
-  revokedRefreshToken
+  revokedRefreshToken,
+  newAccount,
+  newUserRole
 } = require("../models/User");
 const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
 const db = require("../db.js");
+const {
+  validateEmail,
+  formatNamesToTitleCase
+} = require("../helpers/helpers.js");
+const { ADMIN_ROLE_TYPE_ID } = require("../helpers/constants.js");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -17,15 +24,64 @@ if (!JWT_SECRET) {
 }
 
 async function register(req, res) {
-  const { username, password, email } = req.body;
-  try {
-    // TODO: handle caps and formats
-    await create(username, password, email);
-    res.status(201).json({ message: "Usuario registrado" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error al registrar" });
+  const conn = await db.getConnection();
+  await conn.beginTransaction();
+
+  const { password, email, name, middleName, lastName, secondLastName } =
+    req.body;
+  const { valid, normalized } = validateEmail(email);
+  if (!valid) {
+    conn.release();
+    return res.status(400).json({ error: "Formato de email incorrecto" });
   }
+
+  const passwordHash = await argon2.hash(password);
+  const namesObject = formatNamesToTitleCase({
+    name,
+    middleName,
+    lastName,
+    secondLastName
+  });
+
+  const accountResponse = await newAccount(conn);
+  console.log(accountResponse);
+  if (!accountResponse.success) {
+    await conn.rollback();
+    conn.release();
+    return res.status(500).json({ error: accountResponse.error });
+  }
+
+  const accountId = accountResponse.data;
+
+  const userResponse = await newUserDetails(
+    passwordHash,
+    normalized,
+    namesObject.name,
+    namesObject.middleName,
+    namesObject.lastName,
+    namesObject.secondLastName,
+    accountId,
+    conn
+  );
+  console.log(userResponse);
+
+  if (!userResponse.success) {
+    await conn.rollback();
+    conn.release();
+    return res.status(500).json({ error: userResponse.error });
+  }
+
+  const roleResponse = await newUserRole(accountId, ADMIN_ROLE_TYPE_ID, conn);
+  if (!roleResponse.success) {
+    await conn.rollback();
+    conn.release();
+    return res.status(500).json({ error: roleResponse.error });
+  }
+  console.log(roleResponse);
+
+  await conn.commit();
+  conn.release();
+  res.status(201).json({ message: "Usuario registrado" });
 }
 
 async function login(req, res) {
@@ -96,6 +152,7 @@ async function login(req, res) {
       });
     }
   }
+  conn.release();
   return res.json({
     success: true,
     message: "Login exitoso",
@@ -122,12 +179,12 @@ async function refreshToken(req, res) {
     // Verify refresh token signature
     payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
   } catch (err) {
+    console.log(err);
     return res.status(401).json({
       success: false,
       message: "Invalid refresh token"
     });
   }
-
   const conn = await db.getConnection();
   // Get refresh token record from DB
   const refreshTokenResponse = await getRefreshTokenByUserId(
@@ -181,6 +238,7 @@ async function refreshToken(req, res) {
     JWT_SECRET,
     { expiresIn: "1h" }
   );
+  conn.release();
   return res.json({ success: true, accessToken });
 }
 

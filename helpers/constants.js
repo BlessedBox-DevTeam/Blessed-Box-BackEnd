@@ -27,3 +27,7 @@ export const GENDER_MAP = {
 export const PENDING_STATUS_ID = 1;
 export const COMPLETED_STATUS_ID = 2;
 export const DECLINED_STATUS_ID = 3;
+
+// ROLE TYPES IDS
+export const ADMIN_ROLE_TYPE_ID = 1;
+export const STAFF_ROLE_TYPE_ID = 2;
