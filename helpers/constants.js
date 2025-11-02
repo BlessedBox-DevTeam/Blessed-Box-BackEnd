@@ -1,37 +1,28 @@
-const constants = {
+module.exports = {
   BETHLEHEM_RECOLLECTION_CENTER_ID: 1,
-  // GENDER IDS
   MALE_GENDER_ID: 1,
   FEMALE_GENDER_ID: 2,
   UNLABELED_GENDER_ID: 3,
-
-  // BOX AGE IDS
   TWO_TO_FOUR_YEARS_ID: 1,
   FIVE_TO_NINE_YEARS_ID: 2,
   TEN_TO_FOURTEEN_YEARS_ID: 3,
-
-  AGE_MAP: {
-    "2-4": TWO_TO_FOUR_YEARS_ID,
-    "5-9": FIVE_TO_NINE_YEARS_ID,
-    "10-14": TEN_TO_FOURTEEN_YEARS_ID,
-    All: [TWO_TO_FOUR_YEARS_ID, FIVE_TO_NINE_YEARS_ID, TEN_TO_FOURTEEN_YEARS_ID]
-  },
-
-  GENDER_MAP: {
-    Male: MALE_GENDER_ID,
-    Female: FEMALE_GENDER_ID,
-    Unlabeled: UNLABELED_GENDER_ID,
-    All: [MALE_GENDER_ID, FEMALE_GENDER_ID, UNLABELED_GENDER_ID]
-  },
-
-  // TRANSACTION STATUS IDS
   PENDING_STATUS_ID: 1,
   COMPLETED_STATUS_ID: 2,
   DECLINED_STATUS_ID: 3,
-
-  // ROLE TYPES IDS
   ADMIN_ROLE_TYPE_ID: 1,
-  STAFF_ROLE_TYPE_ID: 2
-};
+  STAFF_ROLE_TYPE_ID: 2,
 
-module.exports = constants;
+  // Mapas
+  AGE_MAP: {
+    "2-4": 1,
+    "5-9": 2,
+    "10-14": 3,
+    All: [1, 2, 3]
+  },
+  GENDER_MAP: {
+    Male: 1,
+    Female: 2,
+    Unlabeled: 3,
+    All: [1, 2, 3]
+  }
+};

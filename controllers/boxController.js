@@ -1,5 +1,5 @@
 const db = require("../db.js");
-const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
+const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
 const {
   getDepositedBoxesCountByUserId,
   getBoxesCountByRecollectionCenterId

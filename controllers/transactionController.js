@@ -13,7 +13,7 @@ const {
   PENDING_STATUS_ID,
   COMPLETED_STATUS_ID,
   ADMIN_ROLE_TYPE_ID
-} = require("../helpers/constants.js");
+} = require("../helpers/constants");
 const { toMySQLDateTime } = require("../helpers/helpers.js");
 const jwt = require("jsonwebtoken");
 
