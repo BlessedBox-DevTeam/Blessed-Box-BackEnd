@@ -1,4 +1,4 @@
-export function returnServiceObject({
+function returnServiceObject({
   success = false,
   data = null,
   message = "",
@@ -17,7 +17,7 @@ export function returnServiceObject({
  * @param {string | Date} dateInput - Fecha en formato "YYYY-MM-DD" o Date
  * @returns {string} Fecha en formato "YYYY-MM-DD HH:MM:SS"
  */
-export function toMySQLDateTime(dateInput) {
+function toMySQLDateTime(dateInput) {
   let date;
 
   if (dateInput instanceof Date) {
@@ -35,7 +35,7 @@ export function toMySQLDateTime(dateInput) {
   )} 00:00:00`;
 }
 
-export function validateEmail(email = "") {
+function validateEmail(email = "") {
   if (!email) return { valid: false };
 
   const normalized = email.trim().toLowerCase();
@@ -43,7 +43,7 @@ export function validateEmail(email = "") {
 
   return { valid: regex.test(normalized), normalized };
 }
-export function formatNamesToTitleCase({
+function formatNamesToTitleCase({
   name = "",
   middleName = "",
   lastName = "",
@@ -63,3 +63,10 @@ export function formatNamesToTitleCase({
     secondLastName: toTitleCase(secondLastName)
   };
 }
+
+module.exports = {
+  formatNamesToTitleCase,
+  validateEmail,
+  toMySQLDateTime,
+  returnServiceObject
+};
