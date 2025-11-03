@@ -4,7 +4,6 @@ const dotenv = require("dotenv");
 // Cargar variables de entorno primero
 const env = process.env.NODE_ENV || "development";
 dotenv.config({ path: path.resolve(process.cwd(), `.env.${env}`) });
-console.log(`Running in env: ${env}`);
 
 const express = require("express");
 const http = require("http");

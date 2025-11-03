@@ -31,7 +31,6 @@ async function getUserDepositedBoxes(req, res) {
     payload.userId,
     conn
   );
-  console.log(userBoxesResponse);
   if (!userBoxesResponse.success) {
     return res.status(500).json({
       message: "Internal server. Error on finding user deposited boxes"
@@ -60,7 +59,6 @@ async function getBoxesCountByRecollectionCenter(req, res) {
     BETHLEHEM_RECOLLECTION_CENTER_ID,
     conn
   );
-  console.log(boxesByRCResponse);
   if (!boxesByRCResponse.success) {
     return res.status(500).json({
       message:

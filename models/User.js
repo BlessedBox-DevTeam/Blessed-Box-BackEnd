@@ -5,7 +5,6 @@ const { returnServiceObject } = require("../helpers/helpers.js");
 const newAccount = async (conn) => {
   try {
     const [result] = await conn.query(`INSERT INTO useraccount () VALUES ()`);
-    console.log("New accountId:", result.insertId);
     return returnServiceObject({
       success: true,
       data: result.insertId

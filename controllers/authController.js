@@ -44,7 +44,6 @@ async function register(req, res) {
   });
 
   const accountResponse = await newAccount(conn);
-  console.log(accountResponse);
   if (!accountResponse.success) {
     await conn.rollback();
     conn.release();
@@ -63,7 +62,6 @@ async function register(req, res) {
     accountId,
     conn
   );
-  console.log(userResponse);
 
   if (!userResponse.success) {
     await conn.rollback();
@@ -77,7 +75,6 @@ async function register(req, res) {
     conn.release();
     return res.status(500).json({ error: roleResponse.error });
   }
-  console.log(roleResponse);
 
   await conn.commit();
   conn.release();

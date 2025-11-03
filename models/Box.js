@@ -105,7 +105,6 @@ const getBoxesByTransactionId = async (id, conn) => {
   }
 };
 const getDepositedBoxesCountByUserId = async (userId, conn) => {
-  console.log(userId);
   try {
     const [rows] = await conn.query(
       `SELECT
@@ -144,7 +143,6 @@ const getBoxesCountByRecollectionCenterId = async (
   recollectionCenterId,
   conn
 ) => {
-  console.log(recollectionCenterId);
   try {
     const [rows] = await conn.query(
       `SELECT

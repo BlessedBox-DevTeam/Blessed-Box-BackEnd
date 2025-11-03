@@ -95,8 +95,6 @@ const getTransactionsByRecollectionCenterId = async ({
   const pageSize = 10;
   const offset = (page - 1) * pageSize;
 
-  console.log(filterMode, numberOfBoxes, ageFiltersIds, genderValuesIds);
-
   try {
     let whereClauses = ["t.recollectionCenterId = ?", "t.isDeleted = 0"];
     let havingClauses = [];
@@ -116,7 +114,6 @@ const getTransactionsByRecollectionCenterId = async ({
 
     // If there is a selectedDate
     if (selectedDate) {
-      console.log(selectedDate);
       whereClauses.push(`t.createdDate BETWEEN ? AND ?`);
       params.push(selectedDate, selectedDate.replace("00:00:00", "23:59:59"));
     }
