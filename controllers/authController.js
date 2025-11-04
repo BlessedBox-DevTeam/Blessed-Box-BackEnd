@@ -125,14 +125,14 @@ async function login(req, res) {
     console.timeEnd("getUserRoles");
     console.log("Done getUserRoles");
 
+    console.log("rolesResponse:", rolesResponse);
+
     if (!rolesResponse.success) {
       return res.status(500).json({
         success: false,
         message: "Internal server error."
       });
     }
-
-    console.log("rolesResponse.data:", rolesResponse.data);
 
     // 4️⃣ Firmar access token
     console.time("signAccessToken");
