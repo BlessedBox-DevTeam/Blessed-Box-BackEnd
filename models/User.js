@@ -108,7 +108,7 @@ const getUserRolesByUserId = async (userId, conn) => {
       INNER JOIN useraccount ua
         ON ua.accountId = ar.accountId
         AND ua.isDeleted = 0
-      INNER JOIN usersDetails ud
+      INNER JOIN usersdetails ud
         ON ud.accountId = ua.accountId
       WHERE ud.userId = ?`,
       [userId]
