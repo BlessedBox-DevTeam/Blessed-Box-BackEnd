@@ -82,7 +82,7 @@ async function writeNewTransaction(req, res) {
   const newBoxResponse = await newBox(
     flattenedBoxLabels,
     transactionId,
-    1, //TODO: remove 1
+    userId,
     conn
   );
   if (!newBoxResponse.success) {

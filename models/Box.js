@@ -1,4 +1,3 @@
-const db = require("../db.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
 const {
   BETHLEHEM_RECOLLECTION_CENTER_ID,

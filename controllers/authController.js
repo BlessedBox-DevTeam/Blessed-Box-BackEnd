@@ -96,6 +96,7 @@ async function login(req, res) {
       message: "User not found"
     });
   }
+  console.time();
   const isValid = await argon2.verify(data.passwordHash, password);
   if (!isValid) {
     return res.status(401).json({

@@ -1,4 +1,3 @@
-const db = require("../db.js");
 const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
 
@@ -76,9 +75,9 @@ const newUserRole = async (accountId, roleId, conn) => {
     });
   }
 };
-const findByCredentials = async (email) => {
+const findByCredentials = async (email, conn) => {
   try {
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       "SELECT passwordHash, userId, email FROM usersdetails WHERE email = ?",
       [email]
     );
@@ -96,9 +95,9 @@ const findByCredentials = async (email) => {
   }
 };
 
-const getUserRolesByUserId = async (userId) => {
+const getUserRolesByUserId = async (userId, conn) => {
   try {
-    const [rows] = await db.query(
+    const [rows] = await conn.query(
       `SELECT
         ar.roleTypeId AS roleId,
         rt.description AS roleName
