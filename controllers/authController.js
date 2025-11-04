@@ -132,6 +132,8 @@ async function login(req, res) {
       });
     }
 
+    console.log("rolesResponse.data:", rolesResponse.data);
+
     // 4️⃣ Firmar access token
     console.time("signAccessToken");
     const accessToken = jwt.sign(
