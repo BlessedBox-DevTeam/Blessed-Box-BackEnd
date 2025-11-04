@@ -174,7 +174,7 @@ async function refreshToken(req, res) {
   let payload;
   try {
     // Verify refresh token signature
-    console.log(JWT_REFRESH_SECRET);
+    console.log(refreshToken);
     payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
   } catch (err) {
     console.log(err);
