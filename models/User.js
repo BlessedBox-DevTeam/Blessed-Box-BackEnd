@@ -102,7 +102,7 @@ const getUserRolesByUserId = async (userId, conn) => {
         ar.roleTypeId AS roleId,
         rt.description AS roleName
       FROM accountroles ar
-      INNER JOIN roleTypes rt
+      INNER JOIN roletypes rt
         ON rt.roleTypeId = ar.roleTypeId
         AND rt.isDeleted = 0
       INNER JOIN useraccount ua
