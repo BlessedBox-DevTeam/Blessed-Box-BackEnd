@@ -83,7 +83,6 @@ async function register(req, res) {
 
 async function login(req, res) {
   const conn = await db.getConnection();
-  console.time();
   const { email, password, keepMeSignedIn } = req.body;
   const { success, data, error } = await findByCredentials(email, conn);
   if (!success) {
@@ -97,8 +96,10 @@ async function login(req, res) {
       message: "User not found"
     });
   }
-  console.timeEnd();
+  console.time("argon");
   const isValid = await argon2.verify(data.passwordHash, password);
+  console.timeEnd("argon");
+
   if (!isValid) {
     return res.status(401).json({
       success: false,
