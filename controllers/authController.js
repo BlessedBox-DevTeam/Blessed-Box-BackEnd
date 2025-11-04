@@ -84,90 +84,115 @@ async function register(req, res) {
 async function login(req, res) {
   const conn = await db.getConnection();
   const { email, password, keepMeSignedIn } = req.body;
-  const { success, data, error } = await findByCredentials(email, conn);
-  console.log(success);
-  if (!success) {
-    return res.status(500).json({
-      error: error,
-      message: "Internal server error."
-    });
-  } else if (success && !data) {
-    return res.status(401).json({
-      success: false,
-      message: "User not found"
-    });
-  }
-  const hash = await argon2.hash("123456", { timeCost: 2, memoryCost: 1024 });
-  console.time("verify");
-  const valid = await argon2.verify(hash, "123456"); // rápido
-  console.timeEnd("verify");
 
-  // const isValid = await argon2.verify(data.passwordHash, password);
+  try {
+    // 1️⃣ Buscar usuario
+    console.time("findByCredentials");
+    const { success, data, error } = await findByCredentials(email, conn);
+    console.timeEnd("findByCredentials");
 
-  if (!isValid) {
-    return res.status(401).json({
-      success: false,
-      message: "Your email or password is incorrect."
-    });
-  }
-  const rolesResponse = await getUserRolesByUserId(data.userId, conn);
-  if (!rolesResponse.success) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error."
-    });
-  }
-  // Firmar el token
-  const accessToken = jwt.sign(
-    { userId: data.userId, email: data.email, roles: rolesResponse.data },
-    JWT_SECRET,
-    { expiresIn: "1h" }
-  );
-  let refreshToken = null;
-
-  // Si el usuario eligió "Keep me signed in"
-  if (keepMeSignedIn) {
-    const revokedTokenResponse = await revokedRefreshToken(data.userId, conn);
-    if (!revokedTokenResponse.success) {
+    if (!success) {
       return res.status(500).json({
+        error: error,
+        message: "Internal server error."
+      });
+    } else if (!data) {
+      return res.status(401).json({
         success: false,
-        message: "Error deleting old refresh token"
+        message: "User not found"
       });
     }
 
-    refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
-      expiresIn: "7d"
-    });
-    const refreshTokenHash = await argon2.hash(refreshToken);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
+    // 2️⃣ Validar contraseña
+    console.time("argon2.verify");
+    const isValid = await argon2.verify(data.passwordHash, password);
+    console.timeEnd("argon2.verify");
 
-    const saveResponse = await saveRefreshToken(
-      data.userId,
-      refreshTokenHash,
-      expiresAt,
-      null,
-      null,
-      conn
+    if (!isValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Your email or password is incorrect."
+      });
+    }
+
+    // 3️⃣ Obtener roles
+    console.time("getUserRoles");
+    const rolesResponse = await getUserRolesByUserId(data.userId, conn);
+    console.timeEnd("getUserRoles");
+
+    if (!rolesResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error."
+      });
+    }
+
+    // 4️⃣ Firmar access token
+    const accessToken = jwt.sign(
+      { userId: data.userId, email: data.email, roles: rolesResponse.data },
+      JWT_SECRET,
+      { expiresIn: "1h" }
     );
-    if (!saveResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Could not save refresh token"
-      });
+
+    let refreshToken = null;
+
+    // 5️⃣ Refresh token en background si keepMeSignedIn
+    if (keepMeSignedIn) {
+      (async () => {
+        try {
+          const revokedTokenResponse = await revokedRefreshToken(
+            data.userId,
+            conn
+          );
+          if (!revokedTokenResponse.success) {
+            console.error("Error deleting old refresh token");
+            return;
+          }
+
+          refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
+            expiresIn: "7d"
+          });
+          const refreshTokenHash = await argon2.hash(refreshToken);
+          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
+
+          const saveResponse = await saveRefreshToken(
+            data.userId,
+            refreshTokenHash,
+            expiresAt,
+            null,
+            null,
+            conn
+          );
+          if (!saveResponse.success) {
+            console.error("Could not save refresh token");
+          }
+        } catch (err) {
+          console.error("Background refresh token error:", err);
+        }
+      })();
     }
+
+    // 6️⃣ Liberar conexión y devolver respuesta inmediata
+    conn.release();
+    return res.json({
+      success: true,
+      message: "Login exitoso",
+      accessToken,
+      refreshToken, // podría ser null momentáneamente si keepMeSignedIn
+      user: {
+        userId: data.userId,
+        email: data.email,
+        roles: rolesResponse.data
+      }
+    });
+  } catch (err) {
+    conn.release();
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
   }
-  conn.release();
-  return res.json({
-    success: true,
-    message: "Login exitoso",
-    accessToken,
-    refreshToken,
-    user: {
-      userId: data.userId,
-      email: data.email,
-      roles: rolesResponse.data
-    }
-  });
 }
 
 async function refreshToken(req, res) {
