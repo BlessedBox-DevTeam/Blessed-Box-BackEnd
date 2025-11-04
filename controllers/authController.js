@@ -86,10 +86,13 @@ async function login(req, res) {
   const { email, password, keepMeSignedIn } = req.body;
 
   try {
+    console.time("TotalLogin");
+
     // 1️⃣ Buscar usuario
     console.time("findByCredentials");
     const { success, data, error } = await findByCredentials(email, conn);
     console.timeEnd("findByCredentials");
+    console.log("Done findByCredentials");
 
     if (!success) {
       return res.status(500).json({
@@ -107,6 +110,7 @@ async function login(req, res) {
     console.time("argon2.verify");
     const isValid = await argon2.verify(data.passwordHash, password);
     console.timeEnd("argon2.verify");
+    console.log("Done argon2.verify");
 
     if (!isValid) {
       return res.status(401).json({
@@ -119,6 +123,7 @@ async function login(req, res) {
     console.time("getUserRoles");
     const rolesResponse = await getUserRolesByUserId(data.userId, conn);
     console.timeEnd("getUserRoles");
+    console.log("Done getUserRoles");
 
     if (!rolesResponse.success) {
       return res.status(500).json({
@@ -128,33 +133,50 @@ async function login(req, res) {
     }
 
     // 4️⃣ Firmar access token
+    console.time("signAccessToken");
     const accessToken = jwt.sign(
       { userId: data.userId, email: data.email, roles: rolesResponse.data },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
+    console.timeEnd("signAccessToken");
+    console.log("Done signAccessToken");
 
     let refreshToken = null;
 
     // 5️⃣ Refresh token en background si keepMeSignedIn
     if (keepMeSignedIn) {
       (async () => {
+        console.time("refreshTokenBackground");
         try {
+          console.time("revokedRefreshToken");
           const revokedTokenResponse = await revokedRefreshToken(
             data.userId,
             conn
           );
+          console.timeEnd("revokedRefreshToken");
+          console.log("Done revokedRefreshToken");
+
           if (!revokedTokenResponse.success) {
             console.error("Error deleting old refresh token");
             return;
           }
 
+          console.time("signRefreshToken");
           refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
             expiresIn: "7d"
           });
-          const refreshTokenHash = await argon2.hash(refreshToken);
-          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
+          console.timeEnd("signRefreshToken");
+          console.log("Done signRefreshToken");
 
+          console.time("argon2.hashRefreshToken");
+          const refreshTokenHash = await argon2.hash(refreshToken);
+          console.timeEnd("argon2.hashRefreshToken");
+          console.log("Done hash refreshToken");
+
+          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+          console.time("saveRefreshToken");
           const saveResponse = await saveRefreshToken(
             data.userId,
             refreshTokenHash,
@@ -163,28 +185,37 @@ async function login(req, res) {
             null,
             conn
           );
+          console.timeEnd("saveRefreshToken");
+          console.log("Done saveRefreshToken");
+
           if (!saveResponse.success) {
             console.error("Could not save refresh token");
           }
         } catch (err) {
           console.error("Background refresh token error:", err);
         }
+        console.timeEnd("refreshTokenBackground");
       })();
     }
 
     // 6️⃣ Liberar conexión y devolver respuesta inmediata
+    console.time("response");
     conn.release();
-    return res.json({
+    res.json({
       success: true,
       message: "Login exitoso",
       accessToken,
-      refreshToken, // podría ser null momentáneamente si keepMeSignedIn
+      refreshToken, // puede ser null si keepMeSignedIn
       user: {
         userId: data.userId,
         email: data.email,
         roles: rolesResponse.data
       }
     });
+    console.timeEnd("response");
+
+    console.timeEnd("TotalLogin");
+    console.log("Done TotalLogin (response sent)");
   } catch (err) {
     conn.release();
     console.error(err);
