@@ -82,6 +82,7 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
+  console.log("login");
   const conn = await db.getConnection();
   const { email, password, keepMeSignedIn } = req.body;
 
