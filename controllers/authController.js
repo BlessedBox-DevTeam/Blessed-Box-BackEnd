@@ -305,9 +305,35 @@ async function refreshToken(req, res) {
   conn.release();
   return res.json({ success: true, accessToken });
 }
+async function logout(req, res) {
+  const { refreshToken } = req.body;
+  let payload;
+  try {
+    console.log(refreshToken);
+    payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+  } catch (err) {
+    console.log(err);
+    return res.status(401).json({
+      success: false,
+      message: "Invalid refresh token"
+    });
+  }
+  const conn = await db.getConnection();
+  const revokedTokenResponse = await revokedRefreshToken(payload.userId, conn);
+  console.log(revokedRefreshToken);
+  if (!revokedTokenResponse.success) {
+    return res.status(500).json({
+      success: false,
+      message: "Could not revoke refresh token"
+    });
+  }
+  conn.release();
+  return res.json({ success: true });
+}
 
 module.exports = {
   register,
   login,
+  logout,
   refreshToken
 };
