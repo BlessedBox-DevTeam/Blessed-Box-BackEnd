@@ -153,7 +153,7 @@ const getTransactionsByRecollectionCenterId = async ({
       INNER JOIN boxes b
         ON b.transactionId = t.transactionId
         AND b.isDeleted = 0
-      INNER JOIN recollectionCenters rc
+      INNER JOIN recollectioncenters rc
         ON rc.recollectionCenterId = t.recollectionCenterId
         AND rc.isDeleted = 0
       WHERE ${whereClauses.join(" AND ")}
@@ -244,12 +244,12 @@ const getTransactionDetailsById = async (transactionId, conn) => {
       ud.lastName,
       ud.secondLastName
       FROM transactions t
-      INNER JOIN usersDetails ud
+      INNER JOIN usersdetails ud
         ON ud.userId = t.createdBy
       INNER JOIN useraccount ua
         ON ua.accountId = ud.accountId
         AND ua.isDeleted = 0
-      INNER JOIN recollectionCenters rc
+      INNER JOIN recollectioncenters rc
         ON rc.recollectionCenterId = t.recollectionCenterId
         AND rc.isDeleted = 0
       WHERE t.transactionId = ?
