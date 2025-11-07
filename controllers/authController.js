@@ -320,7 +320,7 @@ async function logout(req, res) {
   }
   const conn = await db.getConnection();
   const revokedTokenResponse = await revokedRefreshToken(payload.userId, conn);
-  console.log(revokedRefreshToken);
+  console.log(revokedTokenResponse);
   if (!revokedTokenResponse.success) {
     return res.status(500).json({
       success: false,
