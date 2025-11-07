@@ -306,16 +306,16 @@ async function refreshToken(req, res) {
   return res.json({ success: true, accessToken });
 }
 async function logout(req, res) {
-  const { refreshToken } = req.body;
+  const { accessToken } = req.body;
   let payload;
   try {
-    console.log(refreshToken);
-    payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    console.log(accessToken);
+    payload = jwt.verify(accessToken, JWT_SECRET);
   } catch (err) {
     console.log(err);
     return res.status(401).json({
       success: false,
-      message: "Invalid refresh token"
+      message: "Invalid access token"
     });
   }
   const conn = await db.getConnection();
