@@ -61,6 +61,7 @@ async function writeNewTransaction(req, res) {
       : PENDING_STATUS_ID,
     conn
   );
+  console.log(transactionResponse);
   if (!transactionResponse.success) {
     await conn.rollback();
     conn.release();
