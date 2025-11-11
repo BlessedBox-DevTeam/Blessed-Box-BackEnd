@@ -19,7 +19,8 @@ if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketSetup(server, db); // adaptado para DB
+const io = socketSetup(server, db);
+app.set("io", io);
 
 // Middlewares
 app.use(helmet());

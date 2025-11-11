@@ -95,6 +95,8 @@ async function writeNewTransaction(req, res) {
   }
   conn.commit();
   conn.release();
+  const io = req.app.get("io");
+  io.emit("transaction:new", { id: transactionId, boxes: newBoxResponse.data });
   res.status(201).json({
     response: { transactionId, boxes: newBoxResponse.data },
     message: "Your transaction has been made."
@@ -200,6 +202,11 @@ async function updateTransactionStatus(req, res) {
   }
   conn.commit();
   conn.release();
+  const io = req.app.get("io");
+  io.emit("transaction:statusUpdated", {
+    id: transactionId,
+    statusCode: statusCode
+  });
   res.json({
     response: editTransactionResponse.data,
     message: "Transaction updated successfully."
