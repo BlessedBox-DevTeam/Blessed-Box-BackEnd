@@ -5,9 +5,11 @@ var svc = new Service({
   name: 'MiServidorNodeEC2',
   description: 'Servidor Node.js de mi aplicación web.',
   
-  // Rutas insertadas: C:\BlessedBox\Blessed-Box-BackEnd\app.js
   script: 'C:\BlessedBox\Blessed-Box-BackEnd\app.js',
   workingDirectory: 'C:\BlessedBox\Blessed-Box-BackEnd', 
+  
+  // LÍNEA CRÍTICA para el diagnóstico
+  logDirectory: 'C:\BlessedBox\Blessed-Box-BackEnd\logs',
   
   nodeOptions: [
     '--max_old_space_size=2048'
