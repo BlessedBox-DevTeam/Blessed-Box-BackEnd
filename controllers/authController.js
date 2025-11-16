@@ -69,7 +69,7 @@ async function register(req, res) {
     return res.status(500).json({ error: userResponse.error });
   }
 
-  const roleResponse = await newUserRole(accountId, ADMIN_ROLE_TYPE_ID, conn);
+  const roleResponse = await newUserRole(accountId, STAFF_ROLE_TYPE_ID, conn);
   if (!roleResponse.success) {
     await conn.rollback();
     conn.release();
