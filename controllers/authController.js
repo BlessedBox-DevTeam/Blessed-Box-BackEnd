@@ -82,19 +82,12 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
-  console.log("login");
   const conn = await db.getConnection();
   const { email, password, keepMeSignedIn } = req.body;
+  let refreshToken = null;
 
   try {
-    console.time("TotalLogin");
-
-    // 1️⃣ Buscar usuario
-    console.time("findByCredentials");
     const { success, data, error } = await findByCredentials(email, conn);
-    console.timeEnd("findByCredentials");
-    console.log("Done findByCredentials");
-
     if (!success) {
       return res.status(500).json({
         error: error,
@@ -106,13 +99,7 @@ async function login(req, res) {
         message: "User not found"
       });
     }
-
-    // 2️⃣ Validar contraseña
-    console.time("argon2.verify");
     const isValid = await argon2.verify(data.passwordHash, password);
-    console.timeEnd("argon2.verify");
-    console.log("Done argon2.verify");
-
     if (!isValid) {
       return res.status(401).json({
         success: false,
@@ -120,105 +107,59 @@ async function login(req, res) {
       });
     }
 
-    // 3️⃣ Obtener roles
-    console.time("getUserRoles");
     const rolesResponse = await getUserRolesByUserId(data.userId, conn);
-    console.timeEnd("getUserRoles");
-    console.log("Done getUserRoles");
-
-    console.log("rolesResponse:", rolesResponse);
-
     if (!rolesResponse.success) {
       return res.status(500).json({
         success: false,
         message: "Internal server error."
       });
     }
-
-    // 4️⃣ Firmar access token
-    console.time("signAccessToken");
     const accessToken = jwt.sign(
       { userId: data.userId, email: data.email, roles: rolesResponse.data },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
-    console.timeEnd("signAccessToken");
-    console.log("Done signAccessToken");
 
-    let refreshToken = null;
-
-    // 5️⃣ Refresh token en background si keepMeSignedIn
     if (keepMeSignedIn) {
-      (async () => {
-        console.time("refreshTokenBackground");
-        try {
-          console.time("revokedRefreshToken");
-          const revokedTokenResponse = await revokedRefreshToken(
-            data.userId,
-            conn
-          );
-          console.timeEnd("revokedRefreshToken");
-          console.log("Done revokedRefreshToken");
+      const revokedTokenResponse = await revokedRefreshToken(data.userId, conn);
+      if (!revokedTokenResponse.success) {
+        return res
+          .status(500)
+          .json({ success: false, message: "Error revoking token" });
+      }
 
-          if (!revokedTokenResponse.success) {
-            console.error("Error deleting old refresh token");
-            return;
-          }
+      refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
+        expiresIn: "7d"
+      });
+      const refreshTokenHash = await argon2.hash(refreshToken);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-          console.time("signRefreshToken");
-          refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
-            expiresIn: "7d"
-          });
-          console.timeEnd("signRefreshToken");
-          console.log("Done signRefreshToken");
-
-          console.time("argon2.hashRefreshToken");
-          const refreshTokenHash = await argon2.hash(refreshToken);
-          console.timeEnd("argon2.hashRefreshToken");
-          console.log("Done hash refreshToken");
-
-          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-          console.time("saveRefreshToken");
-          const saveResponse = await saveRefreshToken(
-            data.userId,
-            refreshTokenHash,
-            expiresAt,
-            null,
-            null,
-            conn
-          );
-          console.timeEnd("saveRefreshToken");
-          console.log("Done saveRefreshToken");
-
-          if (!saveResponse.success) {
-            console.error("Could not save refresh token");
-          }
-        } catch (err) {
-          console.error("Background refresh token error:", err);
-        }
-        console.timeEnd("refreshTokenBackground");
-      })();
+      const saveResponse = await saveRefreshToken(
+        data.userId,
+        refreshTokenHash,
+        expiresAt,
+        null,
+        null,
+        conn
+      );
+      if (!saveResponse.success) {
+        return res
+          .status(500)
+          .json({ success: false, message: "Error saving refresh token" });
+      }
     }
-
-    // 6️⃣ Liberar conexión y devolver respuesta inmediata
-    console.time("response");
     conn.release();
     res.json({
       success: true,
       message: "Login exitoso",
       accessToken,
-      refreshToken, // puede ser null si keepMeSignedIn
+      refreshToken,
       user: {
         userId: data.userId,
         email: data.email,
         roles: rolesResponse.data
       }
     });
-    console.timeEnd("response");
-
-    console.timeEnd("TotalLogin");
-    console.log("Done TotalLogin (response sent)");
   } catch (err) {
     conn.release();
     console.error(err);
@@ -239,7 +180,6 @@ async function refreshToken(req, res) {
   }
   let payload;
   try {
-    // Verify refresh token signature
     console.log(refreshToken);
     payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
   } catch (err) {
@@ -250,7 +190,6 @@ async function refreshToken(req, res) {
     });
   }
   const conn = await db.getConnection();
-  // Get refresh token record from DB
   const refreshTokenResponse = await getRefreshTokenByUserId(
     payload.userId,
     conn
@@ -285,7 +224,6 @@ async function refreshToken(req, res) {
       message: "Refresh token expired"
     });
   }
-  // Get user's roles from DB to include in new access token
   const rolesResponse = await getUserRolesByUserId(payload.userId, conn);
   if (!rolesResponse.success) {
     return res.status(500).json({
@@ -309,7 +247,6 @@ async function logout(req, res) {
   const { accessToken } = req.body;
   let payload;
   try {
-    console.log(accessToken);
     payload = jwt.verify(accessToken, JWT_SECRET);
   } catch (err) {
     console.log(err);

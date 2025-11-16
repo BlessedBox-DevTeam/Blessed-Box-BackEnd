@@ -96,90 +96,102 @@ const getTransactionsByRecollectionCenterId = async ({
   const offset = (page - 1) * pageSize;
 
   try {
-    let whereClauses = ["t.recollectionCenterId = ?", "t.isDeleted = 0"];
-    let havingClauses = [];
-    let params = [recollectionCenterId];
+    let whereClauses = [
+      `t.recollectionCenterId = ${recollectionCenterId}`,
+      "t.isDeleted = 0"
+    ];
 
-    // Filtrar por edad si hay IDs
-    if (ageFiltersIds.length) {
-      whereClauses.push(`b.boxAgeId IN (?)`);
-      params.push(ageFiltersIds);
-    }
-
-    // Filtrar por género si hay IDs
-    if (genderValuesIds.length) {
-      whereClauses.push(`b.genderId IN (?)`);
-      params.push(genderValuesIds);
-    }
-
-    // If there is a selectedDate
+    // Filter by selected date
     if (selectedDate) {
-      whereClauses.push(`t.createdDate BETWEEN ? AND ?`);
-      params.push(selectedDate, selectedDate.replace("00:00:00", "23:59:59"));
+      whereClauses.push(
+        `t.createdDate BETWEEN '${selectedDate}' AND '${selectedDate.replace(
+          "00:00:00",
+          "23:59:59"
+        )}'`
+      );
+    }
+    let havingClauses = [];
+
+    // STRICT Gender
+    if (genderValuesIds.length) {
+      havingClauses.push(`
+    SUM(
+      CASE WHEN b.genderId NOT IN (${genderValuesIds.join(",")})
+           OR b.genderId IS NULL
+      THEN 1 ELSE 0 END
+    ) = 0
+  `);
+    }
+    // STRICT Age
+    if (ageFiltersIds.length) {
+      havingClauses.push(`
+    SUM(
+      CASE WHEN b.boxAgeId NOT IN (${ageFiltersIds.join(",")})
+           OR b.boxAgeId IS NULL
+      THEN 1 ELSE 0 END
+    ) = 0
+  `);
     }
 
-    // Filtrar por número de cajas según modo
-    if (filterMode === "exact" && numberOfBoxes != null) {
-      havingClauses.push(`COUNT(b.boxId) = ?`);
-      params.push(numberOfBoxes);
-    } else if (filterMode === "minimum" && numberOfBoxes != null) {
-      havingClauses.push(`COUNT(b.boxId) >= ?`);
-      params.push(numberOfBoxes);
-    } else if (filterMode === "maximum" && numberOfBoxes != null) {
-      havingClauses.push(`COUNT(b.boxId) <= ?`);
-      params.push(numberOfBoxes);
-    } else if (
-      filterMode === "range" &&
-      numberOfBoxes != null &&
-      maxNumberOfBoxes != null
-    ) {
-      havingClauses.push(`COUNT(b.boxId) BETWEEN ? AND ?`);
-      params.push(numberOfBoxes, maxNumberOfBoxes);
+    // Box count conditions
+    if (filterMode === "exact") {
+      havingClauses.push(`COUNT(b.boxId) = ${numberOfBoxes}`);
+    } else if (filterMode === "minimum") {
+      havingClauses.push(`COUNT(b.boxId) >= ${numberOfBoxes}`);
+    } else if (filterMode === "maximum") {
+      havingClauses.push(`COUNT(b.boxId) <= ${numberOfBoxes}`);
+    } else if (filterMode === "range") {
+      havingClauses.push(`
+    COUNT(b.boxId) BETWEEN ${numberOfBoxes} AND ${maxNumberOfBoxes}
+  `);
     }
 
-    // Query principal
-    const [rows] = await conn.query(
-      `
-      SELECT
-        t.transactionId,
-        t.createdDate,
-        rc.recollectionCenterName,
-        tst.typeDescription AS statusDescription,
-        tst.typeCode AS statusCode,
-        COUNT(b.boxId) AS boxCount
-      FROM transactions t
-      INNER JOIN transactionstatustypes tst
-        ON tst.typeCode = t.statusCode
-      INNER JOIN boxes b
-        ON b.transactionId = t.transactionId
-        AND b.isDeleted = 0
-      INNER JOIN recollectioncenters rc
-        ON rc.recollectionCenterId = t.recollectionCenterId
-        AND rc.isDeleted = 0
-      WHERE ${whereClauses.join(" AND ")}
-      GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
-      ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
-      ORDER BY t.createdDate DESC
-      LIMIT ? OFFSET ?
-      `,
-      [...params, pageSize, offset]
-    );
+    const query = `
+    SELECT
+      t.transactionId,
+      t.createdDate,
+      rc.recollectionCenterName,
+      tst.typeDescription AS statusDescription,
+      tst.typeCode AS statusCode,
+      COUNT(b.boxId) AS boxCount
+    FROM transactions t
+    INNER JOIN transactionstatustypes tst
+      ON tst.typeCode = t.statusCode
+    INNER JOIN recollectioncenters rc
+      ON rc.recollectionCenterId = t.recollectionCenterId
+      AND rc.isDeleted = 0
+    INNER JOIN boxes b
+      ON b.transactionId = t.transactionId
+      AND b.isDeleted = 0
+    WHERE ${whereClauses.join(" AND ")}
+    GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
+
+    ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
+    ORDER BY t.createdDate DESC
+    LIMIT ${pageSize} OFFSET ${offset};
+  `;
+
+    console.log("Query generada:\n", query);
+    const [rows] = await conn.query(query);
+    console.log(rows);
 
     // Total count para paginación (sin filtro de cajas)
     const [[{ totalCount }]] = await conn.query(
-      ` SELECT COUNT(*) AS totalCount
-        FROM (
+      `SELECT COUNT(*) AS totalCount
+        FROM 
+        (
           SELECT t.transactionId
           FROM transactions t
           INNER JOIN boxes b
-          ON b.transactionId = t.transactionId
-          AND b.isDeleted = 0
+            ON b.transactionId = t.transactionId
+            AND b.isDeleted = 0
           WHERE ${whereClauses.join(" AND ")}
           GROUP BY t.transactionId
           ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
-        ) AS filteredTransactions`,
-      params
+        ) AS filteredTransactions
+      `
     );
+
     return returnServiceObject({
       success: true,
       data: { transactions: rows, totalCount: totalCount } || null
