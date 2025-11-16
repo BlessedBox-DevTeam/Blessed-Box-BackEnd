@@ -15,7 +15,7 @@ const {
   validateEmail,
   formatNamesToTitleCase
 } = require("../helpers/helpers.js");
-const { ADMIN_ROLE_TYPE_ID } = require("../helpers/constants");
+const { STAFF_ROLE_TYPE_ID } = require("../helpers/constants.js");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
