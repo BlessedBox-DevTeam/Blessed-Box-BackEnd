@@ -180,7 +180,6 @@ async function refreshToken(req, res) {
   }
   let payload;
   try {
-    console.log(refreshToken);
     payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
   } catch (err) {
     console.log(err);
@@ -257,7 +256,6 @@ async function logout(req, res) {
   }
   const conn = await db.getConnection();
   const revokedTokenResponse = await revokedRefreshToken(payload.userId, conn);
-  console.log(revokedTokenResponse);
   if (!revokedTokenResponse.success) {
     return res.status(500).json({
       success: false,

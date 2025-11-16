@@ -61,7 +61,6 @@ async function writeNewTransaction(req, res) {
       : PENDING_STATUS_ID,
     conn
   );
-  console.log(transactionResponse);
   if (!transactionResponse.success) {
     await conn.rollback();
     conn.release();
@@ -162,7 +161,6 @@ async function getTransactionsByRecollectionCenter(req, res) {
     genderValuesIds: genderValuesIds,
     conn: conn
   });
-  console.log(transactionsResponse);
   if (!transactionsResponse.success) {
     return res.status(500).json({
       message: "Error fetching transactions."

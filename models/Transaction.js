@@ -171,9 +171,7 @@ const getTransactionsByRecollectionCenterId = async ({
     LIMIT ${pageSize} OFFSET ${offset};
   `;
 
-    console.log("Query generada:\n", query);
     const [rows] = await conn.query(query);
-    console.log(rows);
 
     // Total count para paginación (sin filtro de cajas)
     const [[{ totalCount }]] = await conn.query(
