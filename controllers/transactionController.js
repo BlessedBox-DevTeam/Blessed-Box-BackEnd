@@ -14,7 +14,7 @@ const {
   COMPLETED_STATUS_ID,
   ADMIN_ROLE_TYPE_ID
 } = require("../helpers/constants");
-const { toMySQLDateTime } = require("../helpers/helpers.js");
+const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
 const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -119,7 +119,7 @@ async function getTransactionsByRecollectionCenter(req, res) {
   const recollectionCenterId = BETHLEHEM_RECOLLECTION_CENTER_ID;
   const page = Number(pageParam) || 1;
   if (selectedDay) {
-    dateTimeFormat = toMySQLDateTime(selectedDay);
+    dateTimeFormat = toMySQLDateTimeUTC(selectedDay);
   }
   const {
     ageFilters = [],

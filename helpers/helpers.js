@@ -13,25 +13,24 @@ function returnServiceObject({
 }
 
 /**
- * Convierte un string o Date a formato MySQL DATETIME a medianoche.
+ * Convierte un string o Date a formato MySQL UTC a medianoche.
  * @param {string | Date} dateInput - Fecha en formato "YYYY-MM-DD" o Date
- * @returns {string} Fecha en formato "YYYY-MM-DD HH:MM:SS"
+ * @returns {string} Fecha en formato UTC
  */
-function toMySQLDateTime(dateInput) {
+function toMySQLDateTimeUTC(dateInput) {
   let date;
 
   if (dateInput instanceof Date) {
     date = dateInput;
   } else if (typeof dateInput === "string") {
-    date = new Date(dateInput + "T00:00:00");
+    date = new Date(dateInput);
   } else {
     throw new Error("Invalid date input");
   }
 
   const pad = (n) => (n < 10 ? "0" + n : n);
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(
+    date.getUTCDate()
   )} 00:00:00`;
 }
 
@@ -67,6 +66,6 @@ function formatNamesToTitleCase({
 module.exports = {
   formatNamesToTitleCase,
   validateEmail,
-  toMySQLDateTime,
+  toMySQLDateTimeUTC,
   returnServiceObject
 };
