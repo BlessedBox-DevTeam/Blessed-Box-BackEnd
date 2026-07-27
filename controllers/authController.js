@@ -1,3 +1,4 @@
+// Hello
 const {
   newUserDetails,
   findByCredentials,
@@ -6,14 +7,14 @@ const {
   getRefreshTokenByUserId,
   revokedRefreshToken,
   newAccount,
-  newUserRole
+  newUserRole,
 } = require("../models/User");
 const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
 const db = require("../db.js");
 const {
   validateEmail,
-  formatNamesToTitleCase
+  formatNamesToTitleCase,
 } = require("../helpers/helpers.js");
 const { STAFF_ROLE_TYPE_ID } = require("../helpers/constants.js");
 
@@ -40,7 +41,7 @@ async function register(req, res) {
     name,
     middleName,
     lastName,
-    secondLastName
+    secondLastName,
   });
 
   const accountResponse = await newAccount(conn);
@@ -60,7 +61,7 @@ async function register(req, res) {
     namesObject.lastName,
     namesObject.secondLastName,
     accountId,
-    conn
+    conn,
   );
 
   if (!userResponse.success) {
@@ -91,19 +92,19 @@ async function login(req, res) {
     if (!success) {
       return res.status(500).json({
         error: error,
-        message: "Internal server error."
+        message: "Internal server error.",
       });
     } else if (!data) {
       return res.status(401).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
     const isValid = await argon2.verify(data.passwordHash, password);
     if (!isValid) {
       return res.status(401).json({
         success: false,
-        message: "Your email or password is incorrect."
+        message: "Your email or password is incorrect.",
       });
     }
 
@@ -111,13 +112,13 @@ async function login(req, res) {
     if (!rolesResponse.success) {
       return res.status(500).json({
         success: false,
-        message: "Internal server error."
+        message: "Internal server error.",
       });
     }
     const accessToken = jwt.sign(
       { userId: data.userId, email: data.email, roles: rolesResponse.data },
       JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     if (keepMeSignedIn) {
@@ -129,7 +130,7 @@ async function login(req, res) {
       }
 
       refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
-        expiresIn: "7d"
+        expiresIn: "7d",
       });
       const refreshTokenHash = await argon2.hash(refreshToken);
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -140,7 +141,7 @@ async function login(req, res) {
         expiresAt,
         null,
         null,
-        conn
+        conn,
       );
       if (!saveResponse.success) {
         return res
@@ -157,15 +158,15 @@ async function login(req, res) {
       user: {
         userId: data.userId,
         email: data.email,
-        roles: rolesResponse.data
-      }
+        roles: rolesResponse.data,
+      },
     });
   } catch (err) {
     conn.release();
     console.error(err);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 }
@@ -175,7 +176,7 @@ async function refreshToken(req, res) {
   if (!refreshToken) {
     return res.status(400).json({
       success: false,
-      message: "Refresh token required"
+      message: "Refresh token required",
     });
   }
   let payload;
@@ -185,26 +186,26 @@ async function refreshToken(req, res) {
     console.log(err);
     return res.status(401).json({
       success: false,
-      message: "Invalid refresh token"
+      message: "Invalid refresh token",
     });
   }
   const conn = await db.getConnection();
   const refreshTokenResponse = await getRefreshTokenByUserId(
     payload.userId,
-    conn
+    conn,
   );
 
   if (!refreshTokenResponse.success) {
     return res.status(501).json({
       success: false,
-      message: "Refresh token error"
+      message: "Refresh token error",
     });
   }
   const tokenRecord = refreshTokenResponse.data;
   if (!tokenRecord) {
     return res.status(401).json({
       success: false,
-      message: "Refresh token not found"
+      message: "Refresh token not found",
     });
   }
   // Compare hashed refresh token
@@ -212,7 +213,7 @@ async function refreshToken(req, res) {
   if (!isValid) {
     return res.status(401).json({
       success: false,
-      message: "Invalid refresh token"
+      message: "Invalid refresh token",
     });
   }
   // Check expiration
@@ -220,24 +221,24 @@ async function refreshToken(req, res) {
   if (tokenRecord.expiresAt && now > tokenRecord.expiresAt) {
     return res.status(401).json({
       success: false,
-      message: "Refresh token expired"
+      message: "Refresh token expired",
     });
   }
   const rolesResponse = await getUserRolesByUserId(payload.userId, conn);
   if (!rolesResponse.success) {
     return res.status(500).json({
       success: false,
-      message: "Could not get user roles"
+      message: "Could not get user roles",
     });
   }
   // Generate new access token
   const accessToken = jwt.sign(
     {
       userId: payload.userId,
-      roles: rolesResponse.data
+      roles: rolesResponse.data,
     },
     JWT_SECRET,
-    { expiresIn: "1h" }
+    { expiresIn: "1h" },
   );
   conn.release();
   return res.json({ success: true, accessToken });
@@ -251,7 +252,7 @@ async function logout(req, res) {
     console.log(err);
     return res.status(401).json({
       success: false,
-      message: "Invalid access token"
+      message: "Invalid access token",
     });
   }
   const conn = await db.getConnection();
@@ -259,7 +260,7 @@ async function logout(req, res) {
   if (!revokedTokenResponse.success) {
     return res.status(500).json({
       success: false,
-      message: "Could not revoke refresh token"
+      message: "Could not revoke refresh token",
     });
   }
   conn.release();
@@ -270,5 +271,5 @@ module.exports = {
   register,
   login,
   logout,
-  refreshToken
+  refreshToken,
 };
