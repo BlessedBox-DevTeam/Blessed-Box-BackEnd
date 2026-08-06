@@ -1,28 +1,30 @@
 const db = require("../db.js");
 
 // Insert a new recollection center
-const newRecollectionCenter = async (name, countryId, location, qrCodeId) => {
+const newRecollectionCenter = async (code, name, createdBy) => {
   const [result] = await db.query(
-    `INSERT INTO recollectioncenters 
-    (recollectionCenterName, countryId, location, qrCodeId) 
-    VALUES (?, ?, ?, ?)
+    `INSERT INTO recollection_centers 
+    (code, name, created_by) 
+    VALUES (?, ?, ?)
     `,
-    [name, countryId, location, qrCodeId]
+    [code, name, createdBy]
   );
   return result;
 };
 
 // Get all recollection centers
 const getRecollectionCenters = async () => {
-  const [rows] = await db.query("SELECT * FROM recollectioncenters");
+  const [rows] = await db.query(
+    "SELECT code, name FROM recollection_centers WHERE is_active = 1"
+  );
   return rows;
 };
 
-// Get a recollection center by ID
-const getRecollectionCenterById = async (id) => {
+// Get a recollection center by Code
+const getRecollectionCenterByCode = async (code) => {
   const [rows] = await db.query(
-    "SELECT * FROM recollectioncenters WHERE id = ? AND isDeleted = 0",
-    [id]
+    "SELECT code, name FROM recollection_centers WHERE code = ? AND is_active = 1",
+    [code]
   );
   return rows[0] || null;
 };
@@ -30,5 +32,5 @@ const getRecollectionCenterById = async (id) => {
 module.exports = {
   newRecollectionCenter,
   getRecollectionCenters,
-  getRecollectionCenterById
+  getRecollectionCenterByCode
 };

@@ -39,15 +39,13 @@ const newBox = async (boxes, transactionId, userId, conn) => {
       box?.genderId ? box.genderId : null,
       box?.boxAgeId ? box.boxAgeId : null,
       transactionId,
-      BETHLEHEM_RECOLLECTION_CENTER_ID,
-      box?.isSpecialOrder ? 1 : 0,
       userId
     ]);
 
     // SQL statement for inserting multiple records
     const query = `
       INSERT INTO boxes
-      (genderId, boxAgeId, transactionId, recollectionCenterId, isSpecialOrder, createdBy)
+      (gender_id, age_id, transaction_id, createdBy)
       VALUES ${placeholders};
     `;
 
@@ -80,14 +78,19 @@ const getBoxesByTransactionId = async (id, conn) => {
   try {
     const [rows] = await conn.query(
       `SELECT
-       b.boxId,
-       b.genderId,
-       ba.description AS age
+       b.id AS boxId,
+       b.gender_id AS genderId,
+       g.description AS genderDescription,
+       b.age_id AS ageId,
+       ba.description AS ageDescription,
       FROM boxes b
-      LEFT JOIN boxages ba
-        ON ba.boxAgeId = b.boxAgeId
-        AND ba.isDeleted = 0
-      WHERE transactionId = ?`,
+      LEFT JOIN box_ages ba
+        ON ba.id = b.age_id
+        AND ba.is_active = 1
+      INNER JOIN genders g
+        ON g.id = b.gender_id
+        AND g.is_active = 1
+      WHERE b.transaction_id = ?`,
       [id]
     );
     return returnServiceObject({
@@ -107,16 +110,16 @@ const getDepositedBoxesCountByUserId = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
       `SELECT
-        COUNT(*) AS totalBoxes,
-        SUM(CASE WHEN b.genderId = ? THEN 1 ELSE 0 END) AS femaleBoxes,
-        SUM(CASE WHEN b.genderId = ? THEN 1 ELSE 0 END) AS maleBoxes,
-        SUM(CASE WHEN b.genderId = ? THEN 1 ELSE 0 END) AS unlabeledBoxes
+        COUNT(id) AS totalBoxes,
+        SUM(CASE WHEN b.gender_id = ? THEN 1 ELSE 0 END) AS femaleBoxes,
+        SUM(CASE WHEN b.gender_id = ? THEN 1 ELSE 0 END) AS maleBoxes,
+        SUM(CASE WHEN b.gender_id = ? THEN 1 ELSE 0 END) AS unlabeledBoxes
       FROM boxes b
       INNER JOIN transactions t
-        ON t.transactionId = b.transactionId
-        AND t.isDeleted = 0
-        AND t.statusCode = ?
-      WHERE b.createdBy = ?`,
+        ON t.id = b.transaction_id
+        AND t.is_active = 1
+        AND t.status_id = ?
+        AND t.created_by = ?`,
       [
         FEMALE_GENDER_ID,
         MALE_GENDER_ID,
@@ -145,13 +148,13 @@ const getBoxesCountByRecollectionCenterId = async (
   try {
     const [rows] = await conn.query(
       `SELECT
-        COUNT(*) AS totalBoxes
+        COUNT(id) AS totalBoxes
       FROM boxes b
       INNER JOIN transactions t
-        ON t.transactionId = b.transactionId
-        AND t.isDeleted = 0
-        AND t.statusCode = ?
-      WHERE t.recollectionCenterId = ?`,
+        ON t.id = b.transaction_id
+        AND t.is_active = 1
+        AND t.status_id = ?
+      WHERE t.recollection_center_id = ?`,
       [COMPLETED_STATUS_ID, recollectionCenterId]
     );
     return returnServiceObject({

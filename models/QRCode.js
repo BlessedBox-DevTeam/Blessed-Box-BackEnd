@@ -5,19 +5,19 @@ const { returnServiceObject } = require("../helpers/helpers.js");
 /**
  * Inserts a new QR code record into the database.
  *
- * @param {string} hashedCode - The Argon2-hashed QR code value.
- * @param {number|string} backupKeyId - The ID of the associated backup key.
+ * @param {string} code - The QR code value.
+ * @param {number|string} recollectionCenterId - The ID of the associated recollection center.
+ * @param {number|string} createdBy - The ID of the user who created the QR code.
  * @returns {Promise<Object>} A service object containing success status, data, and optional message.
  *
  * @example
- * const result = await newQRCode(hashedValue, 12);
+ * const result = await newQRCode("sample-code", 1, 12);
  */
-const newQRCode = async (hashedCode, backupKeyId) => {
+const newQRCode = async (code, recollectionCenterId, createdBy) => {
   try {
-    // Insert a new QR code record linked to a backup key
     const [result] = await db.query(
-      "INSERT INTO qrcodes (qrCode, backupKeyId) VALUES (?, ?)",
-      [hashedCode, backupKeyId]
+      "INSERT INTO access_codes (code, recollection_center_id, created_by) VALUES (?, ?, ?)",
+      [code, recollectionCenterId, createdBy]
     );
 
     return returnServiceObject({
@@ -35,45 +35,20 @@ const newQRCode = async (hashedCode, backupKeyId) => {
 };
 
 /**
- * Retrieves all QR codes from the database.
- *
- * @returns {Promise<Object>} A service object containing the list of QR codes or an error.
- *
- * @example
- * const codes = await getQRCodes();
- */
-const getQRCodes = async () => {
-  try {
-    // Query all QR code records
-    const [rows] = await db.query("SELECT * FROM qrcodes");
-
-    return returnServiceObject({
-      success: true,
-      data: rows
-    });
-  } catch (error) {
-    return returnServiceObject({
-      success: false,
-      data: null,
-      message: "Error retrieving QR codes",
-      error: error
-    });
-  }
-};
-
-/**
  * Retrieves a single QR code record by its ID.
  *
- * @param {number|string} id - The ID of the QR code to retrieve.
+ * @param {number|string} recollectionCenterId - The ID of the recollection center associated with the QR code.
  * @returns {Promise<Object>} A service object containing the QR code record or null.
  *
  * @example
- * const code = await getQRCodeById(5);
+ * const code = await getQRCodeByRecollectionCenterId(5);
  */
-const getQRCodeById = async (id) => {
+const getQRCodeByRecollectionCenterId = async (recollectionCenterId) => {
   try {
-    // Fetch QR code by unique ID
-    const [rows] = await db.query("SELECT * FROM qrcodes WHERE id = ?", [id]);
+    const [rows] = await db.query(
+      "SELECT code FROM access_codes WHERE recollection_center_id = ?",
+      [recollectionCenterId]
+    );
 
     return returnServiceObject({
       success: true,
@@ -89,48 +64,7 @@ const getQRCodeById = async (id) => {
   }
 };
 
-/**
- * Compares a plaintext QR code value against all stored hashed QR codes.
- *
- * @param {string} codeValue - The plaintext QR code value entered by the user.
- * @returns {Promise<Object>} A service object indicating whether a match was found.
- *
- * @example
- * const result = await compareQRCodeValue("user-input-code");
- */
-const compareQRCodeValue = async (codeValue) => {
-  try {
-    // Retrieve all active (non-deleted) QR codes
-    const [rows] = await db.query(
-      "SELECT qrCode FROM qrcodes WHERE isDeleted = 0"
-    );
-
-    // Compare each stored hash with the provided QR code
-    let isMatch = false;
-    for (const record of rows) {
-      const match = await argon2.verify(record.qrCode, codeValue);
-      if (match) {
-        isMatch = true;
-        break;
-      }
-    }
-    return returnServiceObject({
-      success: true,
-      data: isMatch
-    });
-  } catch (error) {
-    return returnServiceObject({
-      success: false,
-      data: null,
-      message: "Error comparing QR code value",
-      error: error
-    });
-  }
-};
-
 module.exports = {
   newQRCode,
-  getQRCodes,
-  getQRCodeById,
-  compareQRCodeValue
+  getQRCodeByRecollectionCenterId
 };

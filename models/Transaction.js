@@ -17,7 +17,6 @@ const { returnServiceObject } = require("../helpers/helpers.js");
 const newTransaction = async (
   recollectionCenterId,
   userId,
-  emailNotificationId,
   statusCode,
   conn
 ) => {
@@ -26,10 +25,10 @@ const newTransaction = async (
     const [result] = await conn.query(
       `
       INSERT INTO transactions 
-      (recollectionCenterId, createdBy, emailNotificationId, statusCode) 
+      (transaction_number, recollection_center_id, created_by, status_id) 
       VALUES (?, ?, ?, ?)
       `,
-      [recollectionCenterId, userId, emailNotificationId, statusCode]
+      [generateTransactionNumber(), recollectionCenterId, userId, statusCode]
     );
 
     return returnServiceObject({
@@ -41,32 +40,6 @@ const newTransaction = async (
       success: false,
       data: null,
       message: "Error inserting new transaction",
-      error: error
-    });
-  }
-};
-
-/**
- * Retrieves all transactions from the database.
- *
- * @returns {Promise<Object>} A service object containing all transactions or an error message.
- *
- * @example
- * const transactions = await getTransactions();
- */
-const getTransactions = async () => {
-  try {
-    const [rows] = await db.query("SELECT * FROM transactions");
-
-    return returnServiceObject({
-      success: true,
-      data: rows
-    });
-  } catch (error) {
-    return returnServiceObject({
-      success: false,
-      data: null,
-      message: "Error retrieving all transactions",
       error: error
     });
   }
@@ -97,14 +70,14 @@ const getTransactionsByRecollectionCenterId = async ({
 
   try {
     let whereClauses = [
-      `t.recollectionCenterId = ${recollectionCenterId}`,
-      "t.isDeleted = 0"
+      `t.recollection_center_id = ${recollectionCenterId}`,
+      "t.is_active = 0"
     ];
 
     // Filter by selected date
     if (selectedDate) {
       whereClauses.push(
-        `t.createdDate BETWEEN '${selectedDate}' AND '${selectedDate.replace(
+        `t.created_at BETWEEN '${selectedDate}' AND '${selectedDate.replace(
           "00:00:00",
           "23:59:59"
         )}'`
@@ -116,8 +89,8 @@ const getTransactionsByRecollectionCenterId = async ({
     if (genderValuesIds.length) {
       havingClauses.push(`
     SUM(
-      CASE WHEN b.genderId NOT IN (${genderValuesIds.join(",")})
-           OR b.genderId IS NULL
+      CASE WHEN b.gender_id NOT IN (${genderValuesIds.join(",")})
+           OR b.gender_id IS NULL
       THEN 1 ELSE 0 END
     ) = 0
   `);
@@ -126,8 +99,8 @@ const getTransactionsByRecollectionCenterId = async ({
     if (ageFiltersIds.length) {
       havingClauses.push(`
     SUM(
-      CASE WHEN b.boxAgeId NOT IN (${ageFiltersIds.join(",")})
-           OR b.boxAgeId IS NULL
+      CASE WHEN b.age_id NOT IN (${ageFiltersIds.join(",")})
+           OR b.age_id IS NULL
       THEN 1 ELSE 0 END
     ) = 0
   `);
@@ -135,39 +108,40 @@ const getTransactionsByRecollectionCenterId = async ({
 
     // Box count conditions
     if (filterMode === "exact") {
-      havingClauses.push(`COUNT(b.boxId) = ${numberOfBoxes}`);
+      havingClauses.push(`COUNT(b.id) = ${numberOfBoxes}`);
     } else if (filterMode === "minimum") {
-      havingClauses.push(`COUNT(b.boxId) >= ${numberOfBoxes}`);
+      havingClauses.push(`COUNT(b.id) >= ${numberOfBoxes}`);
     } else if (filterMode === "maximum") {
-      havingClauses.push(`COUNT(b.boxId) <= ${numberOfBoxes}`);
+      havingClauses.push(`COUNT(b.id) <= ${numberOfBoxes}`);
     } else if (filterMode === "range") {
       havingClauses.push(`
-    COUNT(b.boxId) BETWEEN ${numberOfBoxes} AND ${maxNumberOfBoxes}
+    COUNT(b.id) BETWEEN ${numberOfBoxes} AND ${maxNumberOfBoxes}
   `);
     }
 
     const query = `
     SELECT
-      t.transactionId,
-      t.createdDate,
-      rc.recollectionCenterName,
-      tst.typeDescription AS statusDescription,
-      tst.typeCode AS statusCode,
-      COUNT(b.boxId) AS boxCount
+      t.id AS transactionId,
+      t.created_at AS createdDate,
+      rc.name AS recollectionCenterName,
+      ts.description AS statusDescription,
+      ts.code AS statusCode,
+      COUNT(b.id) AS boxCount
     FROM transactions t
-    INNER JOIN transactionstatustypes tst
-      ON tst.typeCode = t.statusCode
-    INNER JOIN recollectioncenters rc
-      ON rc.recollectionCenterId = t.recollectionCenterId
-      AND rc.isDeleted = 0
+    INNER JOIN transaction_status ts
+      ON ts.id = t.status_id
+      AND ts.is_active = 1
+    INNER JOIN recollection_centers rc
+      ON rc.id = t.recollection_center_id
+      AND rc.is_active = 1
     INNER JOIN boxes b
-      ON b.transactionId = t.transactionId
-      AND b.isDeleted = 0
+      ON b.transaction_id = t.id
+      AND b.is_active = 1
     WHERE ${whereClauses.join(" AND ")}
-    GROUP BY t.transactionId, t.createdDate, rc.recollectionCenterName, tst.typeDescription, tst.typeCode
+    GROUP BY t.id, t.created_at, rc.name, ts.description, ts.code
 
     ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
-    ORDER BY t.createdDate DESC
+    ORDER BY t.created_at DESC
     LIMIT ${pageSize} OFFSET ${offset};
   `;
 
@@ -178,13 +152,13 @@ const getTransactionsByRecollectionCenterId = async ({
       `SELECT COUNT(*) AS totalCount
         FROM 
         (
-          SELECT t.transactionId
+          SELECT t.id
           FROM transactions t
           INNER JOIN boxes b
-            ON b.transactionId = t.transactionId
-            AND b.isDeleted = 0
+            ON b.transaction_id = t.id
+            AND b.is_active = 1
           WHERE ${whereClauses.join(" AND ")}
-          GROUP BY t.transactionId
+          GROUP BY t.id
           ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
         ) AS filteredTransactions
       `
@@ -281,7 +255,6 @@ const getTransactionDetailsById = async (transactionId, conn) => {
 };
 module.exports = {
   newTransaction,
-  getTransactions,
   getTransactionsByRecollectionCenterId,
   editTransactionStatusById,
   getTransactionDetailsById
