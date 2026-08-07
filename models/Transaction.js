@@ -124,7 +124,6 @@ const getTransactionsByRecollectionCenterId = async ({
       t.id AS transactionId,
       t.created_at AS createdDate,
       rc.name AS recollectionCenterName,
-      ts.description AS statusDescription,
       ts.code AS statusCode,
       COUNT(b.id) AS boxCount
     FROM transactions t
@@ -138,7 +137,7 @@ const getTransactionsByRecollectionCenterId = async ({
       ON b.transaction_id = t.id
       AND b.is_active = 1
     WHERE ${whereClauses.join(" AND ")}
-    GROUP BY t.id, t.created_at, rc.name, ts.description, ts.code
+    GROUP BY t.id, t.created_at, rc.name, ts.code
 
     ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
     ORDER BY t.created_at DESC

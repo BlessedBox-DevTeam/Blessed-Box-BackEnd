@@ -37,17 +37,24 @@ const newQRCode = async (code, recollectionCenterId, createdBy) => {
 /**
  * Retrieves a single QR code record by its ID.
  *
- * @param {number|string} recollectionCenterId - The ID of the recollection center associated with the QR code.
+ * @param {number|string} recollectionCenterCode - The code of the recollection center associated with the QR code.
  * @returns {Promise<Object>} A service object containing the QR code record or null.
  *
  * @example
- * const code = await getQRCodeByRecollectionCenterId(5);
+ * const code = await getQRCodeByRecollectionCenterCode("RC001");
  */
-const getQRCodeByRecollectionCenterId = async (recollectionCenterId) => {
+const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
   try {
     const [rows] = await db.query(
-      "SELECT code FROM access_codes WHERE recollection_center_id = ?",
-      [recollectionCenterId]
+      `SELECT 
+          ac.code 
+       FROM access_codes ac
+       INNER JOIN recollection_centers rc 
+        ON  rc.id = ac.recollection_center_id 
+        AND rc.is_active = 1 
+       WHERE rc.code = ?
+        AND ac.expires_at > NOW()`,
+      [recollectionCenterCode]
     );
 
     return returnServiceObject({
@@ -58,7 +65,7 @@ const getQRCodeByRecollectionCenterId = async (recollectionCenterId) => {
     return returnServiceObject({
       success: false,
       data: null,
-      message: "Error retrieving QR code by ID",
+      message: "Error retrieving QR code by code",
       error: error
     });
   }
@@ -66,5 +73,5 @@ const getQRCodeByRecollectionCenterId = async (recollectionCenterId) => {
 
 module.exports = {
   newQRCode,
-  getQRCodeByRecollectionCenterId
+  getQRCodeByRecollectionCenterCode
 };

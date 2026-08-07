@@ -45,7 +45,7 @@ const newBox = async (boxes, transactionId, userId, conn) => {
     // SQL statement for inserting multiple records
     const query = `
       INSERT INTO boxes
-      (gender_id, age_id, transaction_id, createdBy)
+      (gender_id, age_id, transaction_id, created_by)
       VALUES ${placeholders};
     `;
 
@@ -79,10 +79,8 @@ const getBoxesByTransactionId = async (id, conn) => {
     const [rows] = await conn.query(
       `SELECT
        b.id AS boxId,
-       b.gender_id AS genderId,
-       g.description AS genderDescription,
-       b.age_id AS ageId,
-       ba.description AS ageDescription,
+       g.code AS genderCode,
+       ba.code AS ageCode
       FROM boxes b
       LEFT JOIN box_ages ba
         ON ba.id = b.age_id
