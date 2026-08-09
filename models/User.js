@@ -1,16 +1,7 @@
 const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
 
-const newUserDetails = async (
-  passwordHash,
-  email,
-  name,
-  middleName,
-  lastName,
-  secondLastName,
-  accountId,
-  conn
-) => {
+const newUserDetails = async (passwordHash, email, name, lastName, conn) => {
   try {
     const [result] = await conn.query(
       `INSERT INTO users_details 
@@ -36,7 +27,7 @@ const newUserDetails = async (
     });
   }
 };
-const newUserRole = async (accountId, roleId, conn) => {
+const newUserRole = async (userId, roleId, conn) => {
   try {
     const [result] = await conn.query(
       `INSERT INTO user_roles 
@@ -59,7 +50,7 @@ const newUserRole = async (accountId, roleId, conn) => {
 const findByCredentials = async (email, conn) => {
   try {
     const [rows] = await conn.query(
-      "SELECT password_hash, id, email FROM user_details WHERE email = ? AND is_active = 1",
+      "SELECT password_hash, id AS userId, email FROM user_details WHERE email = ? AND is_active = 1",
       [email]
     );
     return returnServiceObject({
@@ -103,10 +94,32 @@ const getUserRolesByUserId = async (userId, conn) => {
     });
   }
 };
+const updateLastLogin = async (userId, conn) => {
+  try {
+    const [rows] = await conn.query(
+      `UPDATE users_details
+       SET last_login_at = NOW()
+       WHERE id = ?`,
+      [userId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows || null
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error updating last login",
+      error: error
+    });
+  }
+};
 
 module.exports = {
   newUserDetails,
   newUserRole,
   findByCredentials,
-  getUserRolesByUserId
+  getUserRolesByUserId,
+  updateLastLogin
 };

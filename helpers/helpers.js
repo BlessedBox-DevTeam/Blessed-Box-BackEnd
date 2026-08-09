@@ -37,10 +37,10 @@ function toMySQLDateTimeUTC(dateInput) {
 function validateEmail(email = "") {
   if (!email) return { valid: false };
 
-  const normalized = email.trim().toLowerCase();
+  const normalizedEmail = email.trim().toLowerCase();
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  return { valid: regex.test(normalized), normalized };
+  return { valid: regex.test(normalizedEmail), normalizedEmail };
 }
 function formatNamesToTitleCase({
   name = "",
