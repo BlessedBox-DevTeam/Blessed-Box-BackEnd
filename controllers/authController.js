@@ -71,10 +71,11 @@ async function register(req, res) {
     const otpHash = await argon2.hash(otp);
 
     try {
-      await dynamo.onUserRegistration({
-        userId: userResponse.data,
+      await dynamo.onUserRegistration(
+        userResponse.data,
+        normalizedEmail,
         otpHash
-      });
+      );
     } catch (enqueueErr) {
       console.error("onUserRegistration error:", enqueueErr);
       // No fallamos la respuesta al usuario; podemos reintentar en background o mediante endpoint.
