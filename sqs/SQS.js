@@ -19,30 +19,33 @@ const sendMessageToSqs = async ({
   lastName,
   otp
 }) => {
-  const messageBody = JSON.stringify({
-    eventType,
-    userId,
-    email,
-    name,
-    lastName,
-    otp,
-    createdAt: new Date().toISOString()
-  });
+  try {
+    const messageBody = JSON.stringify({
+      eventType,
+      userId,
+      email,
+      name,
+      lastName,
+      otp,
+      createdAt: new Date().toISOString()
+    });
 
-  const command = new SendMessageCommand({
-    QueueUrl: QUEUE_URL,
-    MessageBody: messageBody,
-    MessageAttributes: {
-      eventType: {
-        DataType: "String",
-        StringValue: eventType
+    const command = new SendMessageCommand({
+      QueueUrl: QUEUE_URL,
+      MessageBody: messageBody,
+      MessageAttributes: {
+        eventType: {
+          DataType: "String",
+          StringValue: eventType
+        }
       }
-    }
-  });
+    });
 
-  return await sqsClient.send(command);
+    return await sqsClient.send(command);
+  } catch (error) {
+    console.error("Error sending message to SQS:", error);
+  }
 };
-
 const sendRegistrationMessage = async (payload) =>
   sendMessageToSqs({ eventType: "USER_REGISTRATION", ...payload });
 

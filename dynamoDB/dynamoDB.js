@@ -28,22 +28,25 @@ const onAppOpen = async (userId, sessionToken) => {
   await docClient.send(command);
 };
 const onUserRegistration = async (userId, email, otpHash) => {
-  const expiresAt = Math.floor(Date.now() / 1000) + 900; // 15 minutos en segundos
+  try {
+    const expiresAt = Math.floor(Date.now() / 1000) + 900; // 15 minutos en segundos
 
-  const command = new PutCommand({
-    TableName: "dev-app-otp",
-    Item: {
-      userId: String(userId),
-      email: email,
-      otpHash: otpHash,
-      ttl: expiresAt,
-      attempts: 0,
-      resend_count: 0,
-      last_requested: Math.floor(Date.now() / 1000)
-    }
-  });
-
-  await docClient.send(command);
+    const command = new PutCommand({
+      TableName: "dev-app-otp",
+      Item: {
+        userId: String(userId),
+        email: email,
+        otpHash: otpHash,
+        ttl: expiresAt,
+        attempts: 0,
+        resend_count: 0,
+        last_requested: Math.floor(Date.now() / 1000)
+      }
+    });
+    await docClient.send(command);
+  } catch (error) {
+    console.error("Error al registrar OTP en DynamoDB:", error);
+  }
 };
 
 const getUserOtp = async (userId) => {
@@ -101,29 +104,27 @@ const onUserResend = async (userId, newOtpHash) => {
   }
 };
 const onUserBadAttempt = async (userId) => {
-  const command = new UpdateCommand({
-    TableName: "dev-app-otp",
-    Key: { userId },
-
-    UpdateExpression: "ADD attempts :one",
-
-    ConditionExpression: "attribute_exists(userId) AND attempts < :maxAttempts",
-
-    ExpressionAttributeValues: {
-      ":one": 1,
-      ":maxAttempts": 5
-    },
-
-    ReturnValues: "ALL_NEW"
-  });
-
   try {
+    const command = new UpdateCommand({
+      TableName: "dev-app-otp",
+      Key: { userId },
+
+      UpdateExpression: "ADD attempts :one",
+      ConditionExpression:
+        "attribute_exists(userId) AND attempts < :maxAttempts",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":maxAttempts": 5
+      },
+
+      ReturnValues: "ALL_NEW"
+    });
+
     const result = await docClient.send(command);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
       throw new Error("Máximo de intentos alcanzado.");
     }
-
     throw error;
   }
 };

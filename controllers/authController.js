@@ -32,7 +32,7 @@ async function register(req, res) {
     const { password, email, name, lastName } = req.body;
     const { valid, normalizedEmail } = validateEmail(email);
     if (!valid) {
-      return res.status(400).json({ error: "Formato de email incorrecto" });
+      throw new Error("Formato de email incorrecto");
     }
 
     const existing = await findByCredentials(normalizedEmail, conn);
@@ -53,7 +53,6 @@ async function register(req, res) {
       namesObject.lastName,
       conn
     );
-
     if (!userResponse.success) {
       throw new Error(userResponse.error);
     }
@@ -70,31 +69,21 @@ async function register(req, res) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = await argon2.hash(otp);
 
-    try {
-      await dynamo.onUserRegistration(
-        userResponse.data,
-        normalizedEmail,
-        otpHash
-      );
-    } catch (enqueueErr) {
-      console.error("onUserRegistration error:", enqueueErr);
-      // No fallamos la respuesta al usuario; podemos reintentar en background o mediante endpoint.
-    }
+    await dynamo.onUserRegistration(
+      userResponse.data,
+      normalizedEmail,
+      otpHash
+    );
+
+    await sendRegistrationMessage({
+      userId: userResponse.data,
+      email: normalizedEmail,
+      name: namesObject.name,
+      lastName: namesObject.lastName,
+      otp
+    });
 
     await conn.commit();
-
-    // try {
-    //   await sendRegistrationMessage({
-    //     userId: userResponse.data,
-    //     email: normalizedEmail,
-    //     name: namesObject.name,
-    //     lastName: namesObject.lastName,
-    //     otp
-    //   });
-    // } catch (sqsErr) {
-    //   console.error("sendRegistrationMessage error:", sqsErr);
-    // }
-
     return res.status(201).json({
       message: "Usuario registrado. Revisa tu correo para confirmar tu cuenta."
     });
@@ -202,14 +191,9 @@ async function verifyOtp(req, res) {
     if (!otpResponse.Item) {
       return res.status(404).json({ error: "OTP no encontrado o expirado." });
     }
-
     const isValid = await argon2.verify(otpResponse.Item.otpHash, otp);
     if (!isValid) {
-      try {
-        await dynamo.onUserBadAttempt(userResponse.data.userId);
-      } catch (badAttemptErr) {
-        console.error("onUserBadAttempt error:", badAttemptErr);
-      }
+      await dynamo.onUserBadAttempt(userResponse.data.userId);
       return res.status(401).json({ error: "OTP incorrecto." });
     }
 
@@ -260,18 +244,13 @@ async function resendOtp(req, res) {
 
     await dynamo.onUserResend(userResponse.data.userId, newOtpHash);
 
-    try {
-      await sendOtpMessage({
-        userId: userResponse.data.userId,
-        email: normalizedEmail,
-        name: userResponse.data.firstName,
-        lastName: userResponse.data.lastName,
-        otp: newOtp
-      });
-    } catch (sqsErr) {
-      console.error("sendOtpMessage error:", sqsErr);
-    }
-
+    await sendOtpMessage({
+      userId: userResponse.data.userId,
+      email: normalizedEmail,
+      name: userResponse.data.firstName,
+      lastName: userResponse.data.lastName,
+      otp: newOtp
+    });
     return res.status(200).json({
       success: true,
       message: "OTP reenviado. Revisa tu correo."
