@@ -83,17 +83,17 @@ async function register(req, res) {
 
     await conn.commit();
 
-    try {
-      await sendRegistrationMessage({
-        userId: userResponse.data,
-        email: normalizedEmail,
-        name: namesObject.name,
-        lastName: namesObject.lastName,
-        otp
-      });
-    } catch (sqsErr) {
-      console.error("sendRegistrationMessage error:", sqsErr);
-    }
+    // try {
+    //   await sendRegistrationMessage({
+    //     userId: userResponse.data,
+    //     email: normalizedEmail,
+    //     name: namesObject.name,
+    //     lastName: namesObject.lastName,
+    //     otp
+    //   });
+    // } catch (sqsErr) {
+    //   console.error("sendRegistrationMessage error:", sqsErr);
+    // }
 
     return res.status(201).json({
       message: "Usuario registrado. Revisa tu correo para confirmar tu cuenta."
