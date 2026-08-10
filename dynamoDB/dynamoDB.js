@@ -33,7 +33,7 @@ const onUserRegistration = async (userId, email, otpHash) => {
   const command = new PutCommand({
     TableName: "dev-app-otp",
     Item: {
-      userId: userId,
+      userId: String(userId),
       email: email,
       otpHash: otpHash,
       ttl: expiresAt,
@@ -49,7 +49,7 @@ const onUserRegistration = async (userId, email, otpHash) => {
 const getUserOtp = async (userId) => {
   const command = new GetCommand({
     TableName: "dev-app-otp",
-    Key: { userId }
+    Key: { userId: String(userId) }
   });
 
   return await docClient.send(command);
@@ -58,7 +58,7 @@ const getUserOtp = async (userId) => {
 const deleteUserOtp = async (userId) => {
   const command = new DeleteCommand({
     TableName: "dev-app-otp",
-    Key: { userId }
+    Key: { userId: String(userId) }
   });
 
   await docClient.send(command);
