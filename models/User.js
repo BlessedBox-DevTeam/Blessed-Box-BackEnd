@@ -4,7 +4,7 @@ const { returnServiceObject } = require("../helpers/helpers.js");
 const newUserDetails = async (passwordHash, email, name, lastName, conn) => {
   try {
     const [result] = await conn.query(
-      `INSERT INTO users_details 
+      `INSERT INTO user_details 
       (email, first_name, last_name, password_hash, recollection_center_Id, is_active)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [email, name, lastName, passwordHash, BETHLEHEM_RECOLLECTION_CENTER_ID, 0]
@@ -64,7 +64,7 @@ const findByCredentials = async (email, conn) => {
 const findByEmail = async (email, conn) => {
   try {
     const [rows] = await conn.query(
-      "SELECT id AS userId, email, first_name AS firstName, last_name AS lastName, is_active FROM users_details WHERE email = ?",
+      "SELECT id AS userId, email, first_name AS firstName, last_name AS lastName, is_active FROM user_details WHERE email = ?",
       [email]
     );
     return returnServiceObject({
@@ -84,7 +84,7 @@ const findByEmail = async (email, conn) => {
 const activateUser = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
-      `UPDATE users_details
+      `UPDATE user_details
        SET is_active = 1
        WHERE id = ?`,
       [userId]
@@ -133,7 +133,7 @@ const getUserRolesByUserId = async (userId, conn) => {
 const updateLastLogin = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
-      `UPDATE users_details
+      `UPDATE user_details
        SET last_login_at = NOW()
        WHERE id = ?`,
       [userId]
