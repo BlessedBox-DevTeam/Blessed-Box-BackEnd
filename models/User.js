@@ -61,6 +61,48 @@ const findByCredentials = async (email, conn) => {
   }
 };
 
+const findByEmail = async (email, conn) => {
+  try {
+    const [rows] = await conn.query(
+      "SELECT id AS userId, email, first_name AS firstName, last_name AS lastName, is_active FROM users_details WHERE email = ?",
+      [email]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows[0] || null
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error finding user",
+      error: error
+    });
+  }
+};
+
+const activateUser = async (userId, conn) => {
+  try {
+    const [rows] = await conn.query(
+      `UPDATE users_details
+       SET is_active = 1
+       WHERE id = ?`,
+      [userId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows || null
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error activating user",
+      error: error
+    });
+  }
+};
+
 const getUserRolesByUserId = async (userId, conn) => {
   try {
     const [rows] = await conn.query(

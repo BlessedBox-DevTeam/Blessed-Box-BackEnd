@@ -1,6 +1,8 @@
 const {
   newUserDetails,
   findByCredentials,
+  findByEmail,
+  activateUser,
   getUserRolesByUserId,
   newUserRole,
   updateLastLogin
@@ -14,6 +16,7 @@ const {
 } = require("../helpers/helpers.js");
 const { STAFF_ROLE_TYPE_ID } = require("../helpers/constants.js");
 const dynamo = require("../dynamoDB/dynamoDB.js");
+const { sendRegistrationMessage, sendOtpMessage } = require("../sqs/SQS");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -63,29 +66,37 @@ async function register(req, res) {
     if (!roleResponse.success) {
       throw new Error(roleResponse.error);
     }
-    // Generar OTP, guardar hasheado en BD y commit antes de encolar envío
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = await argon2.hash(otp);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
     try {
-      await dynamo.enqueueRegistrationOTP({
+      await dynamo.onUserRegistration({
         userId: userResponse.data,
-        email: normalizedEmail,
-        otp,
-        expiresAt: expiresAt.toISOString()
+        otpHash
       });
     } catch (enqueueErr) {
-      console.error("enqueueRegistrationOTP error:", enqueueErr);
+      console.error("onUserRegistration error:", enqueueErr);
       // No fallamos la respuesta al usuario; podemos reintentar en background o mediante endpoint.
     }
+
     await conn.commit();
-    return res
-      .status(201)
-      .json({
-        message:
-          "Usuario registrado. Revisa tu correo para confirmar tu cuenta."
+
+    try {
+      await sendRegistrationMessage({
+        userId: userResponse.data,
+        email: normalizedEmail,
+        name: namesObject.name,
+        lastName: namesObject.lastName,
+        otp
       });
+    } catch (sqsErr) {
+      console.error("sendRegistrationMessage error:", sqsErr);
+    }
+
+    return res.status(201).json({
+      message: "Usuario registrado. Revisa tu correo para confirmar tu cuenta."
+    });
   } catch (err) {
     await conn.rollback();
     return res.status(500).json({ error: err.message || "Error interno" });
@@ -160,6 +171,113 @@ async function login(req, res) {
     return res
       .status(500)
       .json({ success: false, message: "Internal server error." });
+  } finally {
+    conn.release();
+  }
+}
+
+async function verifyOtp(req, res) {
+  const conn = await db.getConnection();
+  try {
+    const { email, otp } = req.body;
+    const { valid, normalizedEmail } = validateEmail(email);
+
+    if (!valid || !otp) {
+      return res.status(400).json({ error: "Email y OTP son obligatorios." });
+    }
+
+    const userResponse = await findByEmail(normalizedEmail, conn);
+    if (!userResponse.success) {
+      return res.status(500).json({ error: "Error al buscar usuario." });
+    }
+    if (!userResponse.data) {
+      return res.status(404).json({ error: "Usuario no encontrado." });
+    }
+    if (userResponse.data.is_active === 1) {
+      return res.status(400).json({ error: "Usuario ya está verificado." });
+    }
+
+    const otpResponse = await dynamo.getUserOtp(userResponse.data.userId);
+    if (!otpResponse.Item) {
+      return res.status(404).json({ error: "OTP no encontrado o expirado." });
+    }
+
+    const isValid = await argon2.verify(otpResponse.Item.otpHash, otp);
+    if (!isValid) {
+      try {
+        await dynamo.onUserBadAttempt(userResponse.data.userId);
+      } catch (badAttemptErr) {
+        console.error("onUserBadAttempt error:", badAttemptErr);
+      }
+      return res.status(401).json({ error: "OTP incorrecto." });
+    }
+
+    await conn.beginTransaction();
+    const activateResponse = await activateUser(userResponse.data.userId, conn);
+    if (!activateResponse.success) {
+      throw new Error(activateResponse.message || "Error activando usuario.");
+    }
+    await dynamo.deleteUserOtp(userResponse.data.userId);
+    await conn.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: "Usuario verificado correctamente. Ya puedes iniciar sesión."
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    return res.status(500).json({ error: err.message || "Error interno." });
+  } finally {
+    conn.release();
+  }
+}
+
+async function resendOtp(req, res) {
+  const conn = await db.getConnection();
+  try {
+    const { email } = req.body;
+    const { valid, normalizedEmail } = validateEmail(email);
+
+    if (!valid) {
+      return res.status(400).json({ error: "Email no válido." });
+    }
+
+    const userResponse = await findByEmail(normalizedEmail, conn);
+    if (!userResponse.success) {
+      return res.status(500).json({ error: "Error al buscar usuario." });
+    }
+    if (!userResponse.data) {
+      return res.status(404).json({ error: "Usuario no encontrado." });
+    }
+    if (userResponse.data.is_active === 1) {
+      return res.status(400).json({ error: "Usuario ya está verificado." });
+    }
+
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const newOtpHash = await argon2.hash(newOtp);
+
+    await dynamo.onUserResend(userResponse.data.userId, newOtpHash);
+
+    try {
+      await sendOtpMessage({
+        userId: userResponse.data.userId,
+        email: normalizedEmail,
+        name: userResponse.data.firstName,
+        lastName: userResponse.data.lastName,
+        otp: newOtp
+      });
+    } catch (sqsErr) {
+      console.error("sendOtpMessage error:", sqsErr);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP reenviado. Revisa tu correo."
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message || "Error interno." });
   } finally {
     conn.release();
   }
@@ -294,6 +412,8 @@ async function logout(req, res) {
 module.exports = {
   register,
   login,
+  verifyOtp,
+  resendOtp,
   logout
   // refreshToken
 };
