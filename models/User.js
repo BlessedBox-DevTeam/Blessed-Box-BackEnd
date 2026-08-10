@@ -5,15 +5,9 @@ const newUserDetails = async (passwordHash, email, name, lastName, conn) => {
   try {
     const [result] = await conn.query(
       `INSERT INTO users_details 
-      (email, first_name, last_name, password_hash, recollection_center_Id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        email,
-        firstName,
-        lastName,
-        passwordHash,
-        BETHLEHEM_RECOLLECTION_CENTER_ID
-      ]
+      (email, first_name, last_name, password_hash, recollection_center_Id, is_active)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [email, name, lastName, passwordHash, BETHLEHEM_RECOLLECTION_CENTER_ID, 0]
     );
     return returnServiceObject({
       success: true,

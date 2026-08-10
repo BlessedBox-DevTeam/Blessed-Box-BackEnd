@@ -2,11 +2,8 @@ const {
   newUserDetails,
   findByCredentials,
   getUserRolesByUserId,
-  saveRefreshToken,
-  getRefreshTokenByUserId,
-  revokedRefreshToken,
-  newAccount,
-  newUserRole
+  newUserRole,
+  updateLastLogin
 } = require("../models/User");
 const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
@@ -16,6 +13,7 @@ const {
   formatNamesToTitleCase
 } = require("../helpers/helpers.js");
 const { STAFF_ROLE_TYPE_ID } = require("../helpers/constants.js");
+const dynamo = require("../dynamoDB/dynamoDB.js");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -25,68 +23,95 @@ if (!JWT_SECRET) {
 
 async function register(req, res) {
   const conn = await db.getConnection();
-  await conn.beginTransaction();
+  try {
+    await conn.beginTransaction();
 
-  const { password, email, name, lastName } = req.body;
-  const { valid, normalizedEmail } = validateEmail(email);
-  if (!valid) {
-    conn.release();
-    return res.status(400).json({ error: "Formato de email incorrecto" });
-  }
+    const { password, email, name, lastName } = req.body;
+    const { valid, normalizedEmail } = validateEmail(email);
+    if (!valid) {
+      return res.status(400).json({ error: "Formato de email incorrecto" });
+    }
 
-  const passwordHash = await argon2.hash(password);
-  const namesObject = formatNamesToTitleCase({ name, lastName });
+    const existing = await findByCredentials(normalizedEmail, conn);
+    if (existing.success && existing.data) {
+      return res.status(200).json({
+        message:
+          "Si no existe una cuenta con este email, recibirás instrucciones por correo."
+      });
+    }
 
-  const accountId = accountResponse.data;
+    const passwordHash = await argon2.hash(password);
+    const namesObject = formatNamesToTitleCase({ name, lastName });
 
-  const userResponse = await newUserDetails(
-    passwordHash,
-    normalizedEmail,
-    namesObject.name,
-    namesObject.lastName,
-    conn
-  );
+    const userResponse = await newUserDetails(
+      passwordHash,
+      normalizedEmail,
+      namesObject.name,
+      namesObject.lastName,
+      conn
+    );
 
-  if (!userResponse.success) {
+    if (!userResponse.success) {
+      throw new Error(userResponse.error);
+    }
+
+    const roleResponse = await newUserRole(
+      userResponse.data,
+      STAFF_ROLE_TYPE_ID,
+      conn
+    );
+    if (!roleResponse.success) {
+      throw new Error(roleResponse.error);
+    }
+    // Generar OTP, guardar hasheado en BD y commit antes de encolar envío
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await argon2.hash(otp);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+
+    try {
+      await dynamo.enqueueRegistrationOTP({
+        userId: userResponse.data,
+        email: normalizedEmail,
+        otp,
+        expiresAt: expiresAt.toISOString()
+      });
+    } catch (enqueueErr) {
+      console.error("enqueueRegistrationOTP error:", enqueueErr);
+      // No fallamos la respuesta al usuario; podemos reintentar en background o mediante endpoint.
+    }
+    await conn.commit();
+    return res
+      .status(201)
+      .json({
+        message:
+          "Usuario registrado. Revisa tu correo para confirmar tu cuenta."
+      });
+  } catch (err) {
     await conn.rollback();
+    return res.status(500).json({ error: err.message || "Error interno" });
+  } finally {
     conn.release();
-    return res.status(500).json({ error: userResponse.error });
   }
-
-  const roleResponse = await newUserRole(
-    userResponse.data,
-    STAFF_ROLE_TYPE_ID,
-    conn
-  );
-  if (!roleResponse.success) {
-    await conn.rollback();
-    conn.release();
-    return res.status(500).json({ error: roleResponse.error });
-  }
-
-  await conn.commit();
-  conn.release();
-  res.status(201).json({ message: "Usuario registrado" });
 }
 
 async function login(req, res) {
   const conn = await db.getConnection();
-  const { email, password, keepMeSignedIn } = req.body;
-  let refreshToken = null;
-
   try {
+    const { email, password, keepMeSignedIn } = req.body;
+    let refreshToken = null;
+
     const { success, data, error } = await findByCredentials(email, conn);
     if (!success) {
-      return res.status(500).json({
-        error: error,
-        message: "Internal server error."
-      });
-    } else if (!data) {
-      return res.status(401).json({
-        success: false,
-        message: "User not found"
-      });
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error." });
     }
+    if (!data) {
+      return res
+        .status(401)
+        .json({ success: false, message: "User not found" });
+    }
+
     const isValid = await argon2.verify(data.passwordHash, password);
     if (!isValid) {
       return res.status(401).json({
@@ -97,54 +122,29 @@ async function login(req, res) {
 
     const rolesResponse = await getUserRolesByUserId(data.userId, conn);
     if (!rolesResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error."
-      });
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error." });
     }
+
     const lastLoginResponse = await updateLastLogin(data.userId, conn);
     if (!lastLoginResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error."
-      });
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error." });
     }
+
     const accessToken = jwt.sign(
       { userId: data.userId, email: data.email, roles: rolesResponse.data },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    // if (keepMeSignedIn) {
-    //   const revokedTokenResponse = await revokedRefreshToken(data.userId, conn);
-    //   if (!revokedTokenResponse.success) {
-    //     return res
-    //       .status(500)
-    //       .json({ success: false, message: "Error revoking token" });
-    //   }
+    // Opción B (alternativa): guardar hash del accessToken en vez del token en claro
+    const hashedToken = await argon2.hash(accessToken);
+    await dynamo.onAppOpen(data.userId, hashedToken);
 
-    //   refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
-    //     expiresIn: "7d"
-    //   });
-    //   const refreshTokenHash = await argon2.hash(refreshToken);
-    //   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    //   const saveResponse = await saveRefreshToken(
-    //     data.userId,
-    //     refreshTokenHash,
-    //     expiresAt,
-    //     null,
-    //     null,
-    //     conn
-    //   );
-    //   if (!saveResponse.success) {
-    //     return res
-    //       .status(500)
-    //       .json({ success: false, message: "Error saving refresh token" });
-    //   }
-    // }
-    conn.release();
-    res.json({
+    return res.json({
       success: true,
       message: "Login exitoso",
       accessToken,
@@ -156,14 +156,43 @@ async function login(req, res) {
       }
     });
   } catch (err) {
-    conn.release();
     console.error(err);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error"
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error." });
+  } finally {
+    conn.release();
   }
 }
+
+// if (keepMeSignedIn) {
+//   const revokedTokenResponse = await revokedRefreshToken(data.userId, conn);
+//   if (!revokedTokenResponse.success) {
+//     return res
+//       .status(500)
+//       .json({ success: false, message: "Error revoking token" });
+//   }
+
+//   refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
+//     expiresIn: "7d"
+//   });
+//   const refreshTokenHash = await argon2.hash(refreshToken);
+//   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+//   const saveResponse = await saveRefreshToken(
+//     data.userId,
+//     refreshTokenHash,
+//     expiresAt,
+//     null,
+//     null,
+//     conn
+//   );
+//   if (!saveResponse.success) {
+//     return res
+//       .status(500)
+//       .json({ success: false, message: "Error saving refresh token" });
+//   }
+// }
 
 // async function refreshToken(req, res) {
 //   const { refreshToken } = req.body;
@@ -237,6 +266,7 @@ async function login(req, res) {
 //   conn.release();
 //   return res.json({ success: true, accessToken });
 // }
+
 async function logout(req, res) {
   const { accessToken } = req.body;
   let payload;
