@@ -10,7 +10,7 @@ const {
 const client = new DynamoDBClient({ region: "us-east-2" });
 const docClient = DynamoDBDocumentClient.from(client);
 
-const onAppOpen = async (userId, sessionToken) => {
+const onAppOpen = async (userId, sessionId) => {
   const DAYS_7_IN_SECONDS = 7 * 24 * 60 * 60;
   const expiresAt = Math.floor(Date.now() / 1000) + DAYS_7_IN_SECONDS;
 
@@ -18,7 +18,7 @@ const onAppOpen = async (userId, sessionToken) => {
     TableName: "dev-app-sessions",
     Item: {
       userId: userId, // Partition Key (Unica por usuario si solo permites 1 dispositivo)
-      sessionToken: sessionToken, // Token interno de control de sesión
+      sessionId: sessionId, // Token interno de control de sesión
       status: "ACTIVE",
       lastLogin: Math.floor(Date.now() / 1000),
       expiresAt: expiresAt // DynamoDB TTL borrará esto automáticamente si el usuario no vuelve
