@@ -111,9 +111,9 @@ const getUserRolesByUserId = async (userId, conn) => {
         r.description
       FROM user_roles ur
       INNER JOIN roles r
-        ON r.id = ur.roleId
+        ON r.id = ur.role_id
         AND r.is_active = 1
-      WHERE ur.user_Id = ?
+      WHERE ur.user_id = ?
         AND ur.is_active = 1`,
       [userId]
     );
