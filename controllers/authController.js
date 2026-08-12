@@ -105,7 +105,10 @@ async function login(req, res) {
     if (!success) {
       return res
         .status(500)
-        .json({ success: false, message: "Internal server error." });
+        .json({
+          success: false,
+          message: "Internal server error.(findByCredentials)"
+        });
     }
     if (!data) {
       return res
@@ -123,16 +126,18 @@ async function login(req, res) {
 
     const rolesResponse = await getUserRolesByUserId(data.userId, conn);
     if (!rolesResponse.success) {
-      return res
-        .status(500)
-        .json({ success: false, message: "Internal server error." });
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error (getUserRolesByUserId)."
+      });
     }
 
     const lastLoginResponse = await updateLastLogin(data.userId, conn);
     if (!lastLoginResponse.success) {
-      return res
-        .status(500)
-        .json({ success: false, message: "Internal server error." });
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error (updateLastLogin)."
+      });
     }
 
     const accessToken = jwt.sign(
