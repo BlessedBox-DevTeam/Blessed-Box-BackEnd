@@ -103,12 +103,10 @@ async function login(req, res) {
 
     const { success, data, error } = await findByCredentials(email, conn);
     if (!success) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Internal server error.(findByCredentials)"
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error.(findByCredentials)"
+      });
     }
     if (!data) {
       return res
@@ -128,7 +126,9 @@ async function login(req, res) {
     if (!rolesResponse.success) {
       return res.status(500).json({
         success: false,
-        message: "Internal server error (getUserRolesByUserId)."
+        message:
+          rolesResponse.message ||
+          "Internal server error (getUserRolesByUserId)."
       });
     }
 
