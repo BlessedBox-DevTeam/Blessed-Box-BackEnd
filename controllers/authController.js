@@ -191,7 +191,7 @@ async function verifyOtp(req, res) {
     if (!otpResponse.Item) {
       return res.status(404).json({ error: "OTP no encontrado o expirado." });
     }
-    const isValid = await argon2.verify(otpResponse.Item.otpHash, otp);
+    const isValid = await argon2.verify(otpResponse.Item.otpHash, String(otp));
     if (!isValid) {
       await dynamo.onUserBadAttempt(userResponse.data.userId);
       return res.status(401).json({ error: "OTP incorrecto." });
