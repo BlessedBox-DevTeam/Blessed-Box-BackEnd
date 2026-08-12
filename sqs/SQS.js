@@ -22,13 +22,16 @@ const sendMessageToSqs = async ({
   try {
     const messageBody = JSON.stringify({
       eventType,
-      userId,
-      email,
-      name,
-      lastName,
-      otp,
-      createdAt: new Date().toISOString()
+      payload: {
+        userId,
+        email,
+        name,
+        lastName,
+        otp,
+        createdAt: new Date().toISOString()
+      }
     });
+    console.log("Sending message to SQS:", messageBody);
 
     const command = new SendMessageCommand({
       QueueUrl: QUEUE_URL,
