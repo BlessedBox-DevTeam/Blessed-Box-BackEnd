@@ -157,5 +157,7 @@ module.exports = {
   newUserRole,
   findByCredentials,
   getUserRolesByUserId,
-  updateLastLogin
+  updateLastLogin,
+  findByEmail,
+  activateUser
 };
