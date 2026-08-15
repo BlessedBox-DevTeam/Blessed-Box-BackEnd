@@ -48,7 +48,7 @@ jobs:
             --parameters 'commands=[
               "sudo su - ubuntu",
               "set -e",
-              "cd blessed-box/Blessed-Box-BackEnd",
+              "cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd",
               "git pull origin main",
               "npm ci",
               "pm2 restart blessed_box"
