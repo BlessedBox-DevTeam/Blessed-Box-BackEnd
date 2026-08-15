@@ -46,7 +46,10 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "BlessedBox Dev deployment" \
             --parameters 'commands=[
-             "sudo -iu ubuntu bash -c 'set -e; cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd; git pull origin main; git log -1 --oneline; npm ci; pm2 restart blessed_box'"
+              "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd pull origin main",
+              "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd log -1 --oneline",
+              "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && npm ci'\''",
+              "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && pm2 restart blessed_box'\''"
             ]' \
             --query "Command.CommandId" \
             --output text)
