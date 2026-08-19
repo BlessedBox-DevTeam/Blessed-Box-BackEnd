@@ -58,6 +58,15 @@ const getUserOtp = async (userId) => {
   return await docClient.send(command);
 };
 
+const getAppSession = async (userId) => {
+  const command = new GetCommand({
+    TableName: "dev-app-sessions",
+    Key: { userId }
+  });
+
+  return await docClient.send(command);
+};
+
 const deleteUserOtp = async (userId) => {
   const command = new DeleteCommand({
     TableName: "dev-app-otp",
@@ -156,6 +165,7 @@ module.exports = {
   onAppClose,
   onUserRegistration,
   getUserOtp,
+  getAppSession,
   deleteUserOtp,
   onUserResend,
   onUserBadAttempt

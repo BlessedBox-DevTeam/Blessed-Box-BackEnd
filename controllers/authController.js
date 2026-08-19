@@ -98,7 +98,7 @@ async function register(req, res) {
 async function login(req, res) {
   const conn = await db.getConnection();
   try {
-    const { email, password, keepMeSignedIn } = req.body;
+    const { email, password } = req.body;
     let refreshToken = null;
 
     const { success, data, error } = await findByCredentials(email, conn);
@@ -140,26 +140,25 @@ async function login(req, res) {
       });
     }
 
+    const refreshToken = jwt.sign(
+      { userId: data.userId, email: data.email, roles: rolesResponse.data },
+      JWT_REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
     const accessToken = jwt.sign(
       { userId: data.userId, email: data.email, roles: rolesResponse.data },
       JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     );
 
-    // Opción B (alternativa): guardar hash del accessToken en vez del token en claro
-    const hashedToken = await argon2.hash(accessToken);
+    const hashedToken = await argon2.hash(refreshToken);
     await dynamo.onAppOpen(data.userId, hashedToken);
 
     return res.json({
       success: true,
       message: "Login exitoso",
       accessToken,
-      refreshToken,
-      user: {
-        userId: data.userId,
-        email: data.email,
-        roles: rolesResponse.data
-      }
+      refreshToken
     });
   } catch (err) {
     console.error(err);
@@ -268,130 +267,145 @@ async function resendOtp(req, res) {
   }
 }
 
-// if (keepMeSignedIn) {
-//   const revokedTokenResponse = await revokedRefreshToken(data.userId, conn);
-//   if (!revokedTokenResponse.success) {
-//     return res
-//       .status(500)
-//       .json({ success: false, message: "Error revoking token" });
-//   }
+async function refreshToken(req, res) {
+  let conn;
 
-//   refreshToken = jwt.sign({ userId: data.userId }, JWT_REFRESH_SECRET, {
-//     expiresIn: "7d"
-//   });
-//   const refreshTokenHash = await argon2.hash(refreshToken);
-//   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-//   const saveResponse = await saveRefreshToken(
-//     data.userId,
-//     refreshTokenHash,
-//     expiresAt,
-//     null,
-//     null,
-//     conn
-//   );
-//   if (!saveResponse.success) {
-//     return res
-//       .status(500)
-//       .json({ success: false, message: "Error saving refresh token" });
-//   }
-// }
-
-// async function refreshToken(req, res) {
-//   const { refreshToken } = req.body;
-//   if (!refreshToken) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Refresh token required"
-//     });
-//   }
-//   let payload;
-//   try {
-//     payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-//   } catch (err) {
-//     console.log(err);
-//     return res.status(401).json({
-//       success: false,
-//       message: "Invalid refresh token"
-//     });
-//   }
-//   const conn = await db.getConnection();
-//   const refreshTokenResponse = await getRefreshTokenByUserId(
-//     payload.userId,
-//     conn
-//   );
-
-//   if (!refreshTokenResponse.success) {
-//     return res.status(501).json({
-//       success: false,
-//       message: "Refresh token error"
-//     });
-//   }
-//   const tokenRecord = refreshTokenResponse.data;
-//   if (!tokenRecord) {
-//     return res.status(401).json({
-//       success: false,
-//       message: "Refresh token not found"
-//     });
-//   }
-//   // Compare hashed refresh token
-//   const isValid = await argon2.verify(tokenRecord.tokenHash, refreshToken);
-//   if (!isValid) {
-//     return res.status(401).json({
-//       success: false,
-//       message: "Invalid refresh token"
-//     });
-//   }
-//   // Check expiration
-//   const now = new Date();
-//   if (tokenRecord.expiresAt && now > tokenRecord.expiresAt) {
-//     return res.status(401).json({
-//       success: false,
-//       message: "Refresh token expired"
-//     });
-//   }
-//   const rolesResponse = await getUserRolesByUserId(payload.userId, conn);
-//   if (!rolesResponse.success) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Could not get user roles"
-//     });
-//   }
-//   // Generate new access token
-//   const accessToken = jwt.sign(
-//     {
-//       userId: payload.userId,
-//       roles: rolesResponse.data
-//     },
-//     JWT_SECRET,
-//     { expiresIn: "1h" }
-//   );
-//   conn.release();
-//   return res.json({ success: true, accessToken });
-// }
-
-async function logout(req, res) {
-  const { accessToken } = req.body;
-  let payload;
   try {
-    payload = jwt.verify(accessToken, JWT_SECRET);
-  } catch (err) {
-    console.log(err);
-    return res.status(401).json({
-      success: false,
-      message: "Invalid access token"
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Refresh token required"
+      });
+    }
+
+    const verification = verifyRefreshToken(refreshToken);
+    if (!verification.valid) {
+      return res.status(401).json({
+        success: false,
+        message:
+          verification.error.name === "TokenExpiredError"
+            ? "Refresh token expired"
+            : "Invalid refresh token"
+      });
+    }
+
+    const { userId, email } = verification.payload;
+    const sessionResponse = await dynamo.getAppSession(userId);
+    const session = sessionResponse.Item;
+
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+
+    if (
+      !session ||
+      session.status !== "ACTIVE" ||
+      (session.expiresAt && session.expiresAt <= nowInSeconds)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token expired or revoked"
+      });
+    }
+
+    const isValid = await argon2.verify(session.sessionId, refreshToken);
+    if (!isValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid refresh token"
+      });
+    }
+
+    conn = await db.getConnection();
+    const rolesResponse = await getUserRolesByUserId(userId, conn);
+    if (!rolesResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          rolesResponse.message ||
+          "Internal server error (getUserRolesByUserId)."
+      });
+    }
+
+    const newRefreshToken = jwt.sign(
+      {
+        userId,
+        email,
+        roles: rolesResponse.data
+      },
+      JWT_REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const accessToken = jwt.sign(
+      {
+        userId,
+        email,
+        roles: rolesResponse.data
+      },
+      JWT_SECRET,
+      { expiresIn: "5m" }
+    );
+
+    const hashedRefreshToken = await argon2.hash(newRefreshToken);
+    await dynamo.onAppOpen(userId, hashedRefreshToken);
+
+    return res.json({
+      success: true,
+      accessToken,
+      refreshToken: newRefreshToken
     });
-  }
-  const conn = await db.getConnection();
-  const revokedTokenResponse = await revokedRefreshToken(payload.userId, conn);
-  if (!revokedTokenResponse.success) {
+  } catch (err) {
+    console.error(err);
+
     return res.status(500).json({
       success: false,
-      message: "Could not revoke refresh token"
+      message: "Internal server error."
+    });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+
+async function logout(req, res) {
+  let payload;
+  try {
+    const { refreshToken } = req.body;
+    const { valid, payload } = verifyRefreshToken(refreshToken);
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        message:
+          payload.name === "TokenExpiredError"
+            ? "Refresh token expired"
+            : "Invalid refresh token"
+      });
+    }
+
+    const userId = payload.userId;
+    await dynamo.onAppClose(userId);
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error."
     });
   }
-  conn.release();
-  return res.json({ success: true });
+}
+function verifyRefreshToken(token) {
+  try {
+    return {
+      valid: true,
+      payload: jwt.verify(token, JWT_REFRESH_SECRET)
+    };
+  } catch (err) {
+    return {
+      valid: false,
+      error: err
+    };
+  }
 }
 
 module.exports = {
@@ -399,6 +413,6 @@ module.exports = {
   login,
   verifyOtp,
   resendOtp,
-  logout
-  // refreshToken
+  logout,
+  refreshToken
 };
