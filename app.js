@@ -24,9 +24,9 @@ app.use(helmet());
 app.use(
   cors({
     // origin: env === "production" ? ["https://tu-dominio.com"] : "*",
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
+    origin: "*"
+    // methods: ["GET", "POST", "PUT", "DELETE"],
+    // credentials: true
   })
 );
 app.use(express.json());
