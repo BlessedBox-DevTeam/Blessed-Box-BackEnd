@@ -5,7 +5,8 @@ const {
   activateUser,
   getUserRolesByUserId,
   newUserRole,
-  updateLastLogin
+  updateLastLogin,
+  getPermissionsByRoleIds
 } = require("../models/User");
 const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
@@ -130,6 +131,18 @@ async function login(req, res) {
           "Internal server error (getUserRolesByUserId)."
       });
     }
+    const roleIds = rolesResponse.data.map((role) => role.roleId);
+    const roles = rolesResponse.data.map(({ roleId, ...role }) => role);
+
+    const permissionsResponse = await getPermissionsByRoleIds(roleIds, conn);
+    if (!permissionsResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          permissionsResponse.message ||
+          "Internal server error (getPermissionsByRoleIds)."
+      });
+    }
 
     const lastLoginResponse = await updateLastLogin(data.userId, conn);
     if (!lastLoginResponse.success) {
@@ -140,12 +153,22 @@ async function login(req, res) {
     }
 
     const refreshToken = jwt.sign(
-      { userId: data.userId, email: data.email, roles: rolesResponse.data },
+      {
+        userId: data.userId,
+        email: data.email,
+        roles: roles,
+        permissions: permissionsResponse.data
+      },
       JWT_REFRESH_SECRET,
       { expiresIn: "7d" }
     );
     const accessToken = jwt.sign(
-      { userId: data.userId, email: data.email, roles: rolesResponse.data },
+      {
+        userId: data.userId,
+        email: data.email,
+        roles: roles,
+        permissions: permissionsResponse.data
+      },
       JWT_SECRET,
       { expiresIn: "5m" }
     );
@@ -324,12 +347,25 @@ async function refreshToken(req, res) {
           "Internal server error (getUserRolesByUserId)."
       });
     }
+    const roleIds = rolesResponse.data.map((role) => role.roleId);
+    const roles = rolesResponse.data.map(({ roleId, ...role }) => role);
+
+    const permissionsResponse = await getPermissionsByRoleIds(roleIds, conn);
+    if (!permissionsResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          permissionsResponse.message ||
+          "Internal server error (getPermissionsByRoleIds)."
+      });
+    }
 
     const newRefreshToken = jwt.sign(
       {
         userId,
         email,
-        roles: rolesResponse.data
+        roles: roles,
+        permissions: permissionsResponse.data
       },
       JWT_REFRESH_SECRET,
       { expiresIn: "7d" }
@@ -339,7 +375,8 @@ async function refreshToken(req, res) {
       {
         userId,
         email,
-        roles: rolesResponse.data
+        roles: roles,
+        permissions: permissionsResponse.data
       },
       JWT_SECRET,
       { expiresIn: "5m" }

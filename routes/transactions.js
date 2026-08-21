@@ -1,26 +1,32 @@
 const express = require("express");
 const router = express.Router();
 const transactionController = require("../controllers/transactionController");
-const middleware = require("../middleware/authMiddleware");
+const { authenticate } = require("../middleware/authenticate");
+const { authorize } = require("../middleware/authorize");
+const permissions = require("../helpers/constants");
 
 router.post(
   "/newTransaction",
-  middleware.authMiddleware,
+  authenticate,
+  authorize([permissions.WRITE_TRANSACTION_PERMISSION]),
   transactionController.writeNewTransaction
 );
 router.post(
   "/editTransactionStatus",
-  middleware.authMiddleware,
+  authenticate,
+  authorize([permissions.EDIT_TRANSACTION__PERMISSION]),
   transactionController.updateTransactionStatus
 );
 router.get(
   "/recollectionCenterTransactions",
-  middleware.authMiddleware,
+  authenticate,
+  authorize([permissions.READ_TRANSACTION_PERMISSION]),
   transactionController.getTransactionsByRecollectionCenter
 );
 router.get(
   "/transactionDetails",
-  middleware.authMiddleware,
+  authenticate,
+  authorize([permissions.READ_TRANSACTION_PERMISSION]),
   transactionController.getTransactionDetails
 );
 

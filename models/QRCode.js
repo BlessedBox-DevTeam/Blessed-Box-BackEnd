@@ -7,17 +7,16 @@ const { returnServiceObject } = require("../helpers/helpers.js");
  *
  * @param {string} code - The QR code value.
  * @param {number|string} recollectionCenterId - The ID of the associated recollection center.
- * @param {number|string} createdBy - The ID of the user who created the QR code.
  * @returns {Promise<Object>} A service object containing success status, data, and optional message.
  *
  * @example
- * const result = await newQRCode("sample-code", 1, 12);
+ * const result = await newQRCode("sample-code", 1);
  */
-const newQRCode = async (code, recollectionCenterId, createdBy) => {
+const newQRCode = async (code, recollectionCenterId) => {
   try {
     const [result] = await db.query(
-      "INSERT INTO access_codes (code, recollection_center_id, created_by) VALUES (?, ?, ?)",
-      [code, recollectionCenterId, createdBy]
+      "INSERT INTO access_codes (code, recollection_center_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))",
+      [code, recollectionCenterId]
     );
 
     return returnServiceObject({
@@ -47,13 +46,13 @@ const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
   try {
     const [rows] = await db.query(
       `SELECT 
-          ac.code 
+          ac.code,
+          ac.expires_at AS expiresAt, 
        FROM access_codes ac
        INNER JOIN recollection_centers rc 
         ON  rc.id = ac.recollection_center_id 
         AND rc.is_active = 1 
-       WHERE rc.code = ?
-        AND ac.expires_at > NOW()`,
+       WHERE rc.code = ?`,
       [recollectionCenterCode]
     );
 

@@ -4,6 +4,7 @@ const {
 } = require("../models/QRCode");
 const QRCode = require("qrcode");
 const argon2 = require("argon2");
+const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
 
 /**
  * Generates a new QR code image, hashes the value, and stores it in the database.
@@ -16,30 +17,35 @@ const argon2 = require("argon2");
  *
  */
 async function writeNewQRCode(req, res) {
-  const { qrCodeValue } = req.body;
+  try {
+    const { qrCodeValue, RC_Code } = req.body; // Generate QR image file
+    await QRCode.toFile("./QR.png", RC_Code, {
+      color: { dark: "#000", light: "#FFF" },
+      width: 300
+    });
 
-  // Hash the QR value before storing in DB
-  const hashedCode = await argon2.hash(qrCodeValue);
-
-  // Generate QR image file
-  await QRCode.toFile("./QR.png", qrCodeValue, {
-    color: { dark: "#000", light: "#FFF" },
-    width: 300
-  });
-
-  const { success, data, message, error } = await newQRCode(hashedCode, 3); // Replace `number` with actual backupKeyId if needed
-  if (!success) {
-    return res.status(500).json({
-      success: false,
-      data: null,
-      message: "Error creating QR code.",
-      error: error
+    const { success, error } = await newQRCode(
+      qrCodeValue,
+      BETHLEHEM_RECOLLECTION_CENTER_ID
+    );
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        data: null,
+        message: "Error creating QR code.",
+        error: error
+      });
+    }
+    res.status(201).json({
+      response: true,
+      message: "QR code generated successfully."
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal server error.",
+      error: error.message
     });
   }
-  res.status(201).json({
-    response: true,
-    message: "QR code generated successfully."
-  });
 }
 
 /**

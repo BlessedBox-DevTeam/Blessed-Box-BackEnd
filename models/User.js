@@ -107,6 +107,7 @@ const getUserRolesByUserId = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
       `SELECT
+        r.id AS roleId,
         r.code,
         r.description
       FROM user_roles ur
@@ -116,6 +117,34 @@ const getUserRolesByUserId = async (userId, conn) => {
       WHERE ur.user_id = ?
         AND ur.is_active = 1`,
       [userId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows || null
+    });
+  } catch (error) {
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error finding user",
+      error: error
+    });
+  }
+};
+const getPermissionsByRoleIds = async (roleIds, conn) => {
+  try {
+    const placeholders = roleIds.map(() => "?").join(", ");
+    const [rows] = await conn.query(
+      `SELECT
+        p.code,
+        p.description
+      FROM permissions p
+      INNER JOIN role_permissions rp
+        ON rp.permission_id = p.id
+      WHERE rp.role_id IN (${placeholders})
+        AND p.is_active = 1
+        GROUP BY p.code, p.description`,
+      roleIds
     );
     return returnServiceObject({
       success: true,
@@ -157,6 +186,7 @@ module.exports = {
   newUserRole,
   findByCredentials,
   getUserRolesByUserId,
+  getPermissionsByRoleIds,
   updateLastLogin,
   findByEmail,
   activateUser

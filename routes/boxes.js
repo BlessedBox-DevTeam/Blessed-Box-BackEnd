@@ -1,16 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const boxController = require("../controllers/boxController");
-const middleware = require("../middleware/authMiddleware");
+const { authenticate } = require("../middleware/authenticate");
 
-router.get(
-  "/userBoxes",
-  middleware.authMiddleware,
-  boxController.getUserDepositedBoxes
-);
+router.get("/userBoxes", authenticate, boxController.getUserDepositedBoxes);
 router.get(
   "/countRCBoxes",
-  middleware.authMiddleware,
+  authenticate,
   boxController.getBoxesCountByRecollectionCenter
 );
 

@@ -1,4 +1,4 @@
-const authMiddleware = (req, res, next) => {
+const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -30,5 +30,5 @@ const authMiddleware = (req, res, next) => {
 };
 
 module.exports = {
-  authMiddleware
+  authenticate
 };
