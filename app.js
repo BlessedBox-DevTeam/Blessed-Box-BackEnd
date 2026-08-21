@@ -23,7 +23,8 @@ app.set("io", io);
 app.use(helmet());
 app.use(
   cors({
-    origin: env === "production" ? ["https://tu-dominio.com"] : "*",
+    // origin: env === "production" ? ["https://tu-dominio.com"] : "*",
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   })
