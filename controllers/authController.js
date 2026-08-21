@@ -99,7 +99,6 @@ async function login(req, res) {
   const conn = await db.getConnection();
   try {
     const { email, password } = req.body;
-    let refreshToken = null;
 
     const { success, data, error } = await findByCredentials(email, conn);
     if (!success) {
