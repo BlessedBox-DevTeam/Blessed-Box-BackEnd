@@ -47,7 +47,7 @@ const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
     const [rows] = await db.query(
       `SELECT 
           ac.code,
-          ac.expires_at AS expiresAt, 
+          ac.expires_at <= NOW() AS hasExpired
        FROM access_codes ac
        INNER JOIN recollection_centers rc 
         ON  rc.id = ac.recollection_center_id 

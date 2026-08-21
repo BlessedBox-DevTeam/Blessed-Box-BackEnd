@@ -61,16 +61,24 @@ async function writeNewQRCode(req, res) {
 async function isQRCodeValueCorrect(req, res) {
   try {
     const { qrCodeValue } = req.body;
-    const compareQRCodeResponse =
+    const { success, data } =
       await getQRCodeByRecollectionCenterCode(qrCodeValue);
-    if (!compareQRCodeResponse.success) {
+    if (!success) {
       return res.status(500).json({
         message: "Internal server error."
       });
     }
+
+    if (data && data.hasExpired) {
+      return res.status(400).json({
+        response: false,
+        message: "The QR code has expired."
+      });
+    }
+
     res.json({
-      response: Boolean(compareQRCodeResponse.data),
-      message: Boolean(compareQRCodeResponse.data)
+      response: Boolean(data),
+      message: Boolean(data)
         ? ""
         : "The QR code is incorrect. Please check and try again."
     });
