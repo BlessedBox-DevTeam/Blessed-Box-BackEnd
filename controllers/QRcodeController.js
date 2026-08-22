@@ -3,7 +3,7 @@ const {
   getQRCodeByRecollectionCenterCode
 } = require("../models/QRCode");
 const QRCode = require("qrcode");
-const argon2 = require("argon2");
+const { uploadFile } = require("../s3Bucket/s3Bucket");
 const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
 
 /**
@@ -18,14 +18,14 @@ const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
  */
 async function writeNewQRCode(req, res) {
   try {
-    const { qrCodeValue, RC_Code } = req.body; // Generate QR image file
-    await QRCode.toFile("./QR.png", RC_Code, {
-      color: { dark: "#000", light: "#FFF" },
-      width: 300
-    });
+    const { accessCode, RC_Code } = req.body;
+    const opts = { type: "png", errorCorrectionLevel: "H", width: 300 };
+    const qrBuffer = await QRCode.toBuffer(RC_Code, opts);
+
+    await uploadFile(`RC/QR-Code/${RC_Code}`, qrBuffer, "image/png", "qrCodes");
 
     const { success, error } = await newQRCode(
-      qrCodeValue,
+      accessCode,
       BETHLEHEM_RECOLLECTION_CENTER_ID
     );
     if (!success) {
@@ -60,9 +60,9 @@ async function writeNewQRCode(req, res) {
  */
 async function isQRCodeValueCorrect(req, res) {
   try {
-    const { qrCodeValue } = req.body;
+    const { accessCode } = req.body;
     const { success, data } =
-      await getQRCodeByRecollectionCenterCode(qrCodeValue);
+      await getQRCodeByRecollectionCenterCode(accessCode);
     if (!success) {
       return res.status(500).json({
         message: "Internal server error."

@@ -6,8 +6,9 @@ const {
   PutCommand,
   UpdateCommand
 } = require("@aws-sdk/lib-dynamodb");
+const REGION = process.env.AWS_REGION || "us-east-2";
 
-const client = new DynamoDBClient({ region: "us-east-2" });
+const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
 
 const onAppOpen = async (userId, sessionId) => {
