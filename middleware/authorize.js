@@ -1,5 +1,7 @@
-const authorize = (...requiredPermissions) => {
+const authorize = (requiredPermissions) => {
   return (req, res, next) => {
+    console.log(req.user, requiredPermissions);
+
     const userPermissions = req.user?.permissions || [];
 
     const hasPermission = requiredPermissions.some((permission) =>
