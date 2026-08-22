@@ -14,6 +14,7 @@ const newUserDetails = async (passwordHash, email, name, lastName, conn) => {
       data: result.insertId
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       message: "Error inserting new user",
@@ -34,6 +35,7 @@ const newUserRole = async (userId, roleId, conn) => {
       data: result.insertId
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       message: "Error inserting new user",
@@ -52,6 +54,7 @@ const findByCredentials = async (email, conn) => {
       data: rows[0] || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -72,6 +75,7 @@ const findByEmail = async (email, conn) => {
       data: rows[0] || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -94,6 +98,7 @@ const activateUser = async (userId, conn) => {
       data: rows || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -123,6 +128,7 @@ const getUserRolesByUserId = async (userId, conn) => {
       data: rows || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -151,6 +157,7 @@ const getPermissionsByRoleIds = async (roleIds, conn) => {
       data: rows || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -172,6 +179,7 @@ const updateLastLogin = async (userId, conn) => {
       data: rows || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,

@@ -15,6 +15,7 @@ const authenticate = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
+    console.error(error);
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,

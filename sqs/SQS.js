@@ -31,7 +31,6 @@ const sendMessageToSqs = async ({
         createdAt: new Date().toISOString()
       }
     });
-    console.log("Sending message to SQS:", messageBody);
 
     const command = new SendMessageCommand({
       QueueUrl: QUEUE_URL,
@@ -47,6 +46,7 @@ const sendMessageToSqs = async ({
     return await sqsClient.send(command);
   } catch (error) {
     console.error("Error sending message to SQS:", error);
+    throw error;
   }
 };
 const sendRegistrationMessage = async (payload) =>

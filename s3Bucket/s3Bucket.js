@@ -33,6 +33,7 @@ const uploadFile = async (fileName, file, contentType, category) => {
     return await client.send(command);
   } catch (error) {
     console.error("Error at upload file S3-Bucket:", error);
+    throw error;
   }
 };
 

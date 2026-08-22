@@ -12,21 +12,25 @@ const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
 
 const onAppOpen = async (userId, sessionId) => {
-  const DAYS_7_IN_SECONDS = 7 * 24 * 60 * 60;
-  const expiresAt = Math.floor(Date.now() / 1000) + DAYS_7_IN_SECONDS;
+  try {
+    const DAYS_7_IN_SECONDS = 7 * 24 * 60 * 60;
+    const expiresAt = Math.floor(Date.now() / 1000) + DAYS_7_IN_SECONDS;
 
-  const command = new PutCommand({
-    TableName: "dev-app-sessions",
-    Item: {
-      userId: userId, // Partition Key (Unica por usuario si solo permites 1 dispositivo)
-      sessionId: sessionId, // Token interno de control de sesión
-      status: "ACTIVE",
-      lastLogin: Math.floor(Date.now() / 1000),
-      expiresAt: expiresAt // DynamoDB TTL borrará esto automáticamente si el usuario no vuelve
-    }
-  });
-
-  await docClient.send(command);
+    const command = new PutCommand({
+      TableName: "dev-app-sessions",
+      Item: {
+        userId: userId, // Partition Key (Unica por usuario si solo permites 1 dispositivo)
+        sessionId: sessionId, // Token interno de control de sesión
+        status: "ACTIVE",
+        lastLogin: Math.floor(Date.now() / 1000),
+        expiresAt: expiresAt // DynamoDB TTL borrará esto automáticamente si el usuario no vuelve
+      }
+    });
+    await docClient.send(command);
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
 };
 const onUserRegistration = async (userId, email, otpHash) => {
   try {
@@ -47,6 +51,7 @@ const onUserRegistration = async (userId, email, otpHash) => {
     await docClient.send(command);
   } catch (error) {
     console.error("Error al registrar OTP en DynamoDB:", error);
+    throw error;
   }
 };
 
@@ -154,6 +159,7 @@ const onAppClose = async (userId) => {
     );
   } catch (error) {
     console.error("Error al cerrar sesión:", error);
+    throw error;
   }
 };
 // const enqueueRegistrationOTP = async ({ userId, email, otp, expiresAt }) => {

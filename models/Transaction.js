@@ -7,7 +7,6 @@ const { returnServiceObject } = require("../helpers/helpers.js");
  *
  * @param {number|string} recollectionCenterId - The ID of the recollection center associated with the transaction.
  * @param {number|string} userId - The ID of the user creating the transaction.
- * @param {number|string|null} emailNotificationId - The related email notification ID (optional).
  * @param {number} statusCode - The transaction’s current status code.
  * @returns {Promise<Object>} A service object containing the success flag and new transaction ID.
  *
@@ -36,6 +35,7 @@ const newTransaction = async (
       data: result.insertId
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -168,6 +168,7 @@ const getTransactionsByRecollectionCenterId = async ({
       data: { transactions: rows, totalCount: totalCount } || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -204,6 +205,7 @@ const editTransactionStatusById = async (id, statusCode, conn) => {
       data: result
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -244,6 +246,7 @@ const getTransactionDetailsById = async (transactionId, conn) => {
       data: rows[0] || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,

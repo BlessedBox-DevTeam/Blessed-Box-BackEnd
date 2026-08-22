@@ -24,6 +24,7 @@ const newQRCode = async (code, recollectionCenterId) => {
       data: result
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -61,6 +62,7 @@ const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
       data: rows[0] || null
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
