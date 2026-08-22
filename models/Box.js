@@ -56,6 +56,7 @@ const newBox = async (boxes, transactionId, userId, conn) => {
       data: result
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -96,6 +97,7 @@ const getBoxesByTransactionId = async (id, conn) => {
       data: rows
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -131,6 +133,7 @@ const getDepositedBoxesCountByUserId = async (userId, conn) => {
       data: rows[0]
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
@@ -160,6 +163,7 @@ const getBoxesCountByRecollectionCenterId = async (
       data: rows[0]
     });
   } catch (error) {
+    console.error(error);
     return returnServiceObject({
       success: false,
       data: null,
