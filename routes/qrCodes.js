@@ -5,7 +5,12 @@ const { authenticate } = require("../middleware/authenticate");
 const { authorize } = require("../middleware/authorize");
 const permissions = require("../helpers/constants");
 
-router.post("/newQRCode", qrCodeController.writeNewQRCode);
+router.post(
+  "/newQRCode",
+  authenticate,
+  authorize([permissions.WRITE_QR_CODE_PERMISSION]),
+  qrCodeController.writeNewQRCode
+);
 router.post(
   "/isQRCode",
   authenticate,
