@@ -2,7 +2,8 @@ const authorize = (requiredPermissions) => {
   return (req, res, next) => {
     console.log(req.user, requiredPermissions);
 
-    const userPermissions = req.user?.permissions || [];
+    const userPermissions =
+      req.user?.permissions.map((permission) => permission?.code) || [];
 
     const hasPermission = requiredPermissions.some((permission) =>
       userPermissions.includes(permission)
