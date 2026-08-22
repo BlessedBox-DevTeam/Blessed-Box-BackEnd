@@ -20,9 +20,9 @@ const client = new S3Client({ region: REGION });
 const uploadFile = async (fileName, file, contentType, category) => {
   try {
     const input = {
-      Body: fileName,
       Bucket: S3_BUCKET,
-      Key: file,
+      Key: fileName,
+      Body: file,
       ContentType: contentType,
       Metadata: {
         category: category
