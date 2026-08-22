@@ -1,6 +1,5 @@
 const { returnServiceObject } = require("../helpers/helpers.js");
 const {
-  BETHLEHEM_RECOLLECTION_CENTER_ID,
   COMPLETED_STATUS_ID,
   FEMALE_GENDER_ID,
   MALE_GENDER_ID,
@@ -110,7 +109,7 @@ const getDepositedBoxesCountByUserId = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
       `SELECT
-        COUNT(id) AS totalBoxes,
+        COUNT(b.id) AS totalBoxes,
         SUM(CASE WHEN b.gender_id = ? THEN 1 ELSE 0 END) AS femaleBoxes,
         SUM(CASE WHEN b.gender_id = ? THEN 1 ELSE 0 END) AS maleBoxes,
         SUM(CASE WHEN b.gender_id = ? THEN 1 ELSE 0 END) AS unlabeledBoxes
@@ -149,7 +148,7 @@ const getBoxesCountByRecollectionCenterId = async (
   try {
     const [rows] = await conn.query(
       `SELECT
-        COUNT(id) AS totalBoxes
+        COUNT(b.id) AS totalBoxes
       FROM boxes b
       INNER JOIN transactions t
         ON t.id = b.transaction_id
