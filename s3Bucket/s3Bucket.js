@@ -14,6 +14,7 @@ const client = new S3Client({ region: REGION });
  *
  * @param {string} fileName
  * @param {File} file
+ * @param {string} contentType
  * @param {string} category
  */
 const uploadFile = async (fileName, file, contentType, category) => {
@@ -27,6 +28,7 @@ const uploadFile = async (fileName, file, contentType, category) => {
         category: category
       }
     };
+    console.log(input);
     const command = new PutObjectCommand(input);
     return await client.send(command);
   } catch (error) {
