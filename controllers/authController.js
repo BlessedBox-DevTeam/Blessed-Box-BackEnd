@@ -313,7 +313,7 @@ async function refreshToken(req, res) {
     }
 
     const { userId, email } = verification.payload;
-    const sessionResponse = await dynamo.getAppSession(userId);
+    const sessionResponse = await dynamo.getAppSession(String(userId));
     const session = sessionResponse.Item;
 
     const nowInSeconds = Math.floor(Date.now() / 1000);
