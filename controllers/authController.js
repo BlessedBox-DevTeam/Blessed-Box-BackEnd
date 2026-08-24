@@ -329,13 +329,15 @@ async function refreshToken(req, res) {
       });
     }
 
-    const isValid = await argon2.verify(
-      session.sessionId,
-      verification.payload
-    );
+    console.log(verification.payload);
+
     console.log(session);
+
+    console.log(refreshToken);
+
+    const isValid = await argon2.verify(session.sessionId, refreshToken);
     if (!isValid) {
-      console.log(isValid);
+      console.log("invalid");
       return res.status(401).json({
         success: false,
         message: "Invalid refresh token"
