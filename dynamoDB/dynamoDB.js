@@ -135,7 +135,7 @@ const onUserBadAttempt = async (userId) => {
       ReturnValues: "ALL_NEW"
     });
 
-    const result = await docClient.send(command);
+    await docClient.send(command);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
       throw new Error("Máximo de intentos alcanzado.");
@@ -154,18 +154,11 @@ const onAppClose = async (userId) => {
 
   try {
     await docClient.send(command);
-    console.log(
-      `Sesión del usuario ${userId} eliminada correctamente de DynamoDB.`
-    );
   } catch (error) {
     console.error("Error al cerrar sesión:", error);
     throw error;
   }
 };
-// const enqueueRegistrationOTP = async ({ userId, email, otp, expiresAt }) => {
-//   const apiUrl = process.env.API_GATEWAY_URL + "/send-registration-otp";
-//   await axios.post(apiUrl, { userId, email, otp, expiresAt });
-// };
 
 module.exports = {
   onAppOpen,
