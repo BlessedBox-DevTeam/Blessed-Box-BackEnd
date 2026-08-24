@@ -427,6 +427,9 @@ async function logout(req, res) {
 
     const userId = payload.userId;
     await dynamo.onAppClose(userId);
+    return res.json({
+      success: true
+    });
   } catch (err) {
     console.error(err);
 
