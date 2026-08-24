@@ -303,7 +303,6 @@ async function refreshToken(req, res) {
 
     const verification = verifyRefreshToken(refreshToken);
     if (!verification.valid) {
-      console.log("expired 1");
       return res.status(401).json({
         success: false,
         message:
@@ -324,7 +323,6 @@ async function refreshToken(req, res) {
       session.status !== "ACTIVE" ||
       (session.expiresAt && session.expiresAt <= nowInSeconds)
     ) {
-      console.log("expired 2");
       return res.status(401).json({
         success: false,
         message: "Refresh token expired or revoked"
@@ -332,6 +330,7 @@ async function refreshToken(req, res) {
     }
 
     const isValid = await argon2.verify(session.sessionId, refreshToken);
+    console.log(session);
     if (!isValid) {
       console.log("invalid");
       return res.status(401).json({
