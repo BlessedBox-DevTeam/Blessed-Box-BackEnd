@@ -19,7 +19,7 @@ const onAppOpen = async (userId, sessionId) => {
     const command = new PutCommand({
       TableName: "dev-app-sessions",
       Item: {
-        userId: userId, // Partition Key (Unica por usuario si solo permites 1 dispositivo)
+        userId: String(userId), // Partition Key (Unica por usuario si solo permites 1 dispositivo)
         sessionId: sessionId, // Token interno de control de sesión
         status: "ACTIVE",
         lastLogin: Math.floor(Date.now() / 1000),
