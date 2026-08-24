@@ -67,7 +67,7 @@ const getUserOtp = async (userId) => {
 const getAppSession = async (userId) => {
   const command = new GetCommand({
     TableName: "dev-app-sessions",
-    Key: { userId }
+    Key: { userId: String(userId) }
   });
 
   return await docClient.send(command);
@@ -87,7 +87,7 @@ const onUserResend = async (userId, newOtpHash) => {
 
   const command = new UpdateCommand({
     TableName: "dev-app-otp",
-    Key: { userId },
+    Key: { userId: String(userId) },
 
     UpdateExpression:
       "SET otpHash = :otpHash, ttl = :ttl, last_requested = :now, attempts = :zero ADD resend_count :one",
@@ -122,7 +122,7 @@ const onUserBadAttempt = async (userId) => {
   try {
     const command = new UpdateCommand({
       TableName: "dev-app-otp",
-      Key: { userId },
+      Key: { userId: String(userId) },
 
       UpdateExpression: "ADD attempts :one",
       ConditionExpression:
@@ -148,7 +148,7 @@ const onAppClose = async (userId) => {
   const command = new DeleteCommand({
     TableName: "dev-app-sessions",
     Key: {
-      userId: userId
+      userId: String(userId)
     }
   });
 

@@ -412,7 +412,6 @@ async function refreshToken(req, res) {
 }
 
 async function logout(req, res) {
-  let payload;
   try {
     const { refreshToken } = req.body;
     const { valid, payload } = verifyRefreshToken(refreshToken);
