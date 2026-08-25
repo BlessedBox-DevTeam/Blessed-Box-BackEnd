@@ -95,6 +95,10 @@ const onUserResend = async (userId, newOtpHash) => {
     ConditionExpression:
       "attribute_exists(userId) AND resend_count < :maxResends AND last_requested < :oneMinuteAgo",
 
+    ExpressionAttributeNames: {
+      "#ttl": "ttl"
+    },
+
     ExpressionAttributeValues: {
       ":otpHash": newOtpHash,
       ":ttl": now + 900,
