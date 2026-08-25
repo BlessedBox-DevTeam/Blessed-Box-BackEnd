@@ -90,7 +90,7 @@ const onUserResend = async (userId, newOtpHash) => {
     Key: { userId: String(userId) },
 
     UpdateExpression:
-      "SET otpHash = :otpHash, ttl = :ttl, last_requested = :now, attempts = :zero ADD resend_count :one",
+      "SET otpHash = :otpHash, #ttl = :ttl, last_requested = :now, attempts = :zero ADD resend_count :one",
 
     ConditionExpression:
       "attribute_exists(userId) AND resend_count < :maxResends AND last_requested < :oneMinuteAgo",
