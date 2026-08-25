@@ -212,9 +212,9 @@ async function verifyOtp(req, res) {
     if (userResponse.data.is_active === 1) {
       return res.status(400).json({ error: "Usuario ya está verificado." });
     }
-
+    const now = Math.floor(Date.now() / 1000);
     const otpResponse = await dynamo.getUserOtp(userResponse.data.userId);
-    if (!otpResponse.Item) {
+    if (!otpResponse.Item || otpResponse.Item.ttl <= now) {
       return res.status(404).json({ error: "OTP no encontrado o expirado." });
     }
     const isValid = await argon2.verify(otpResponse.Item.otpHash, String(otp));
