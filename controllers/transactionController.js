@@ -3,7 +3,8 @@ const {
   newTransaction,
   getTransactionsByRecollectionCenterId,
   editTransactionStatusById,
-  getTransactionDetailsById
+  getTransactionDetailsById,
+  newTransactionHistory
 } = require("../models/Transaction");
 const { newBox, getBoxesByTransactionId } = require("../models/Box");
 const {
@@ -12,17 +13,9 @@ const {
   AGE_MAP,
   PENDING_STATUS_ID,
   COMPLETED_STATUS_ID,
-  ADMIN_ROLE_TYPE_ID
+  MANAGER_ROLE_CODE
 } = require("../helpers/constants");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
-const jwt = require("jsonwebtoken");
-
-const JWT_SECRET = process.env.JWT_SECRET;
-// const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET no está definido. Configura tu archivo .env");
-}
-
 /**
  * Creates a new transaction with associated boxes.
  *
@@ -34,72 +27,68 @@ if (!JWT_SECRET) {
  *
  */
 async function writeNewTransaction(req, res) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) return res.status(401).json({ message: "Access token missing" });
-  let payload;
-  try {
-    payload = jwt.verify(token, JWT_SECRET);
-  } catch (err) {
-    console.log(err);
-    return res.status(401).json({ message: "Invalid or expired access token" });
-  }
-
-  let userId = payload.userId;
   const conn = await db.getConnection();
-  await conn.beginTransaction();
-  const { boxLabels } = req.body;
+  try {
+    await conn.beginTransaction();
+    const { userId, roles } = req.user;
+    const { boxLabels } = req.body;
 
-  // Create the transaction
-  const transactionResponse = await newTransaction(
-    BETHLEHEM_RECOLLECTION_CENTER_ID,
-    userId,
-    null,
-    payload.roles.some((role) => role.roleId === ADMIN_ROLE_TYPE_ID)
-      ? COMPLETED_STATUS_ID
-      : PENDING_STATUS_ID,
-    conn
-  );
-  if (!transactionResponse.success) {
-    await conn.rollback();
-    conn.release();
-    return res.status(500).json({
-      message: "Error creating transaction."
+    // Create the transaction
+    const transactionResponse = await newTransaction(
+      BETHLEHEM_RECOLLECTION_CENTER_ID,
+      userId,
+      roles.some((role) => role === MANAGER_ROLE_CODE)
+        ? COMPLETED_STATUS_ID
+        : PENDING_STATUS_ID,
+      conn
+    );
+    if (!transactionResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          transactionResponse.message ||
+          "Internal server error (transactionResponse)."
+      });
+    }
+    const transactionId = transactionResponse.data;
+    // Flatten boxes according to quantity
+    const flattenedBoxLabels = boxLabels.flatMap((label) =>
+      Array(label.quantity)
+        .fill(0)
+        .map(() => ({
+          genderId: label.genderId,
+          boxAgeId: label.boxAgeId
+        }))
+    );
+
+    const newBoxResponse = await newBox(
+      flattenedBoxLabels,
+      transactionId,
+      userId,
+      conn
+    );
+    if (!newBoxResponse.success) {
+      return res.status(500).json({ message: "Error creating boxes." });
+    }
+    conn.commit();
+    const io = req.app.get("io");
+    io.emit("transaction:new", {
+      id: transactionId,
+      boxes: newBoxResponse.data
     });
-  }
-  const transactionId = transactionResponse.data;
-  // Flatten boxes according to quantity
-  const flattenedBoxLabels = boxLabels.flatMap((label) =>
-    Array(label.quantity)
-      .fill(0)
-      .map(() => ({
-        genderId: label.genderId,
-        boxAgeId: label.boxAgeId
-      }))
-  );
-  // Insert boxes
-  const newBoxResponse = await newBox(
-    flattenedBoxLabels,
-    transactionId,
-    userId,
-    conn
-  );
-  if (!newBoxResponse.success) {
-    await conn.rollback();
-    conn.release();
-    return res.status(500).json({
-      message: "Error creating boxes."
+    res.status(201).json({
+      response: { transactionId, boxes: newBoxResponse.data },
+      message: "Your transaction has been made."
     });
+  } catch (error) {
+    console.error(err);
+    await conn.rollback();
+    return res
+      .status(500)
+      .json({ error: err.message || "Internal server error." });
+  } finally {
+    conn.release();
   }
-  conn.commit();
-  conn.release();
-  const io = req.app.get("io");
-  io.emit("transaction:new", { id: transactionId, boxes: newBoxResponse.data });
-  res.status(201).json({
-    response: { transactionId, boxes: newBoxResponse.data },
-    message: "Your transaction has been made."
-  });
 }
 
 /**
@@ -114,60 +103,68 @@ async function writeNewTransaction(req, res) {
  */
 async function getTransactionsByRecollectionCenter(req, res) {
   const conn = await db.getConnection();
-  let dateTimeFormat = null;
-  const { page: pageParam, selectedDay, filters = {} } = req.query;
-  const recollectionCenterId = BETHLEHEM_RECOLLECTION_CENTER_ID;
-  const page = Number(pageParam) || 1;
-  if (selectedDay) {
-    dateTimeFormat = toMySQLDateTimeUTC(selectedDay);
-  }
-  const {
-    ageFilters = [],
-    genderValues = [],
-    filterMode = null,
-    numberOfBoxes = null,
-    maxNumberOfBoxes = null
-  } = JSON.parse(filters);
+  try {
+    let dateTimeFormat = null;
+    const { page: pageParam, selectedDay, filters = {} } = req.query;
+    const recollectionCenterId = BETHLEHEM_RECOLLECTION_CENTER_ID;
+    const page = Number(pageParam) || 1;
+    if (selectedDay) {
+      dateTimeFormat = toMySQLDateTimeUTC(selectedDay);
+    }
+    const {
+      ageFilters = [],
+      genderValues = [],
+      filterMode = null,
+      numberOfBoxes = null,
+      maxNumberOfBoxes = null
+    } = JSON.parse(filters);
 
-  const normalizeArray = (value) =>
-    Array.isArray(value) ? value : value ? [value] : [];
+    const normalizeArray = (value) =>
+      Array.isArray(value) ? value : value ? [value] : [];
 
-  const ageFiltersList = normalizeArray(ageFilters);
-  const genderValuesList = normalizeArray(genderValues);
+    const ageFiltersList = normalizeArray(ageFilters);
+    const genderValuesList = normalizeArray(genderValues);
 
-  const ageFiltersIds = ageFiltersList.flatMap((label) =>
-    Array.isArray(AGE_MAP[label])
-      ? AGE_MAP[label]
-      : AGE_MAP[label]
-      ? [AGE_MAP[label]]
-      : []
-  );
+    const ageFiltersIds = ageFiltersList.flatMap((label) =>
+      Array.isArray(AGE_MAP[label])
+        ? AGE_MAP[label]
+        : AGE_MAP[label]
+          ? [AGE_MAP[label]]
+          : []
+    );
 
-  const genderValuesIds = genderValuesList.flatMap((label) =>
-    Array.isArray(GENDER_MAP[label])
-      ? GENDER_MAP[label]
-      : GENDER_MAP[label]
-      ? [GENDER_MAP[label]]
-      : []
-  );
-  const transactionsResponse = await getTransactionsByRecollectionCenterId({
-    recollectionCenterId: recollectionCenterId,
-    page: page,
-    selectedDate: dateTimeFormat,
-    filterMode: filterMode,
-    numberOfBoxes: numberOfBoxes,
-    maxNumberOfBoxes: maxNumberOfBoxes,
-    ageFiltersIds: ageFiltersIds,
-    genderValuesIds: genderValuesIds,
-    conn: conn
-  });
-  if (!transactionsResponse.success) {
-    return res.status(500).json({
-      message: "Error fetching transactions."
+    const genderValuesIds = genderValuesList.flatMap((label) =>
+      Array.isArray(GENDER_MAP[label])
+        ? GENDER_MAP[label]
+        : GENDER_MAP[label]
+          ? [GENDER_MAP[label]]
+          : []
+    );
+    const transactionsResponse = await getTransactionsByRecollectionCenterId({
+      recollectionCenterId: recollectionCenterId,
+      page: page,
+      selectedDate: dateTimeFormat,
+      filterMode: filterMode,
+      numberOfBoxes: numberOfBoxes,
+      maxNumberOfBoxes: maxNumberOfBoxes,
+      ageFiltersIds: ageFiltersIds,
+      genderValuesIds: genderValuesIds,
+      conn: conn
     });
+    if (!transactionsResponse.success) {
+      return res.status(500).json({
+        message: "Error fetching transactions."
+      });
+    }
+    return res.json({ response: transactionsResponse.data });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ error: err.message || "Internal server error." });
+  } finally {
+    conn.release();
   }
-  conn.release();
-  res.json({ response: transactionsResponse.data });
 }
 
 /**
@@ -176,71 +173,98 @@ async function getTransactionsByRecollectionCenter(req, res) {
  * @param {Object} req - Express request object.
  * @param {Object} req.body - Request body.
  * @param {number} req.body.transactionId - The ID of the transaction to update.
- * @param {string|number} req.body.statusCode - The new status code.
+ * @param {string|number} req.body.statusId - The new status code.
  * @param {Object} res - Express response object.
  * @returns {Promise<void>} Sends a JSON response indicating success or failure.
  *
  */
 async function updateTransactionStatus(req, res) {
   const conn = await db.getConnection();
-  await conn.beginTransaction();
+  try {
+    await conn.beginTransaction();
+    const { transactionId, statusId } = req.body;
+    const { userId } = req.user;
 
-  const { transactionId, statusCode } = req.body;
-  const editTransactionResponse = await editTransactionStatusById(
-    transactionId,
-    statusCode,
-    conn
-  );
-  if (!editTransactionResponse.success) {
-    await conn.rollback();
-    conn.release();
-    return res.status(500).json({
-      message: "Error updating transaction status."
+    const editTransactionResponse = await editTransactionStatusById(
+      transactionId,
+      statusId,
+      userId,
+      conn
+    );
+    if (!editTransactionResponse.success) {
+      return res.status(500).json({
+        message: "Error updating transaction status."
+      });
+    }
+    const transactionHistoryResponse = await newTransactionHistory(
+      transactionId,
+      statusId,
+      userId,
+      conn
+    );
+    if (!transactionHistoryResponse.success) {
+      return res.status(500).json({
+        message: "Error inserting transaction history."
+      });
+    }
+
+    conn.commit();
+    const io = req.app.get("io");
+    io.emit("transaction:statusUpdated", {
+      id: transactionId,
+      statusCode: statusCode
     });
+
+    return res.json({
+      response: editTransactionResponse.data,
+      message: "Transaction updated successfully."
+    });
+  } catch (error) {
+    console.error(error);
+    await conn.rollback();
+    return res
+      .status(500)
+      .json({ error: err.message || "Internal server error." });
+  } finally {
+    conn.release();
   }
-  conn.commit();
-  conn.release();
-  const io = req.app.get("io");
-  io.emit("transaction:statusUpdated", {
-    id: transactionId,
-    statusCode: statusCode
-  });
-  res.json({
-    response: editTransactionResponse.data,
-    message: "Transaction updated successfully."
-  });
 }
 
 async function getTransactionDetails(req, res) {
   const conn = await db.getConnection();
-  const transactionId = Number(req.query.transactionId);
-  if (isNaN(transactionId)) {
-    return res.status(400).json({
-      message: "Invalid transactionId. It must be a number."
-    });
-  }
-  const transactionDetailsResponse = await getTransactionDetailsById(
-    transactionId,
-    conn
-  );
-  if (!transactionDetailsResponse.success) {
-    return res.status(500).json({
-      message: "Error fetching transaction details."
-    });
-  }
-  const boxesResponse = await getBoxesByTransactionId(transactionId, conn);
-  if (!boxesResponse.success) {
-    return res.status(500).json({
-      message: "Error fetching boxes for transaction."
-    });
-  }
-  conn.release();
-  res.json({
-    response: {
-      transactionDetails: transactionDetailsResponse.data,
-      boxes: boxesResponse.data
+  try {
+    const transactionId = Number(req.query.transactionId);
+    if (isNaN(transactionId)) {
+      return res.status(400).json({
+        message: "Invalid transactionId. It must be a number."
+      });
     }
-  });
+    const transactionDetailsResponse = await getTransactionDetailsById(
+      transactionId,
+      conn
+    );
+    if (!transactionDetailsResponse.success) {
+      return res.status(500).json({
+        message: "Error fetching transaction details."
+      });
+    }
+    const boxesResponse = await getBoxesByTransactionId(transactionId, conn);
+    if (!boxesResponse.success) {
+      return res.status(500).json({
+        message: "Error fetching boxes for transaction."
+      });
+    }
+    return res.json({
+      response: {
+        transactionDetails: transactionDetailsResponse.data,
+        boxes: boxesResponse.data
+      }
+    });
+  } catch (error) {
+    console.error(error);
+  } finally {
+    conn.release();
+  }
 }
 
 module.exports = {

@@ -20,14 +20,14 @@ const newTransaction = async (
   conn
 ) => {
   try {
-    // Insert a new transaction record with provided parameters
+    const transactionNumberResponse = await generateTransactionNumber(conn);
     const [result] = await conn.query(
       `
       INSERT INTO transactions 
       (transaction_number, recollection_center_id, created_by, status_id) 
       VALUES (?, ?, ?, ?)
       `,
-      [generateTransactionNumber(), recollectionCenterId, userId, statusCode]
+      [transactionNumberResponse.data, recollectionCenterId, userId, statusCode]
     );
 
     return returnServiceObject({
@@ -182,22 +182,22 @@ const getTransactionsByRecollectionCenterId = async ({
  * Updates the status code of a specific transaction by its ID.
  *
  * @param {number|string} id - The transaction ID to update.
- * @param {string} statusCode - The new status code to apply.
+ * @param {string} statusId - The new status code to apply.
+ * @param {string} userId - The user's id
  * @returns {Promise<Object>} A service object containing the update result or error details.
  *
  * @example
  * const result = await editTransactionStatusById(10, "COMPLETED");
  */
-const editTransactionStatusById = async (id, statusCode, conn) => {
+const editTransactionStatusById = async (id, statusId, userId, conn) => {
   try {
-    // Update the transaction’s status based on its ID
     const [result] = await conn.query(
       `
       UPDATE transactions
-      SET statusCode = ?
+      SET status_id = ?, modified_by = ?
       WHERE transactionId = ?
       `,
-      [statusCode, id]
+      [statusId, userId, id]
     );
 
     return returnServiceObject({
@@ -219,26 +219,25 @@ const getTransactionDetailsById = async (transactionId, conn) => {
   try {
     const [rows] = await conn.query(
       `SELECT
-      t.transactionId,
-      t.createdDate AS transactionDate,
-      t.statusCode,
-      rc.recollectionCenterName,
-      ud.email,
-      ud.name,
-      ud.middleName,
-      ud.lastName,
-      ud.secondLastName
+        t.id AS transactionId,
+        t.transaction_number AS transactionNumber
+        t.created_at AS transactionDate,
+        t.status_id AS statusId,
+        ts.code AS statusCode
+        rc.name AS recollectionCenterName,
+        ud.email,
+        ud.first_name AS firstName,
+        ud.last_name AS lastName,
       FROM transactions t
-      INNER JOIN usersdetails ud
-        ON ud.userId = t.createdBy
-      INNER JOIN useraccount ua
-        ON ua.accountId = ud.accountId
-        AND ua.isDeleted = 0
-      INNER JOIN recollectioncenters rc
-        ON rc.recollectionCenterId = t.recollectionCenterId
-        AND rc.isDeleted = 0
-      WHERE t.transactionId = ?
-        AND t.isDeleted = 0`,
+      INNER JOIN transaction_status ts
+        ON ts.id = t.status_id
+      INNER JOIN user_details ud
+        ON ud.id = t.created_by
+      INNER JOIN recollection_centers rc
+        ON rc.id = t.recollection_center_id
+        AND rc.is_Active = 1
+      WHERE t.id = ?
+        AND t.is_Active = 1`,
       [transactionId]
     );
     return returnServiceObject({
@@ -255,9 +254,58 @@ const getTransactionDetailsById = async (transactionId, conn) => {
     });
   }
 };
+const newTransactionHistory = async (transactionId, statusId, userId, conn) => {
+  try {
+    const [result] = await conn.query(
+      `
+      INSERT INTO transaction_history
+      (transaction_id, status_id, modified_by) 
+      VALUES (?, ?, ?)
+      `,
+      [transactionId, statusId, userId]
+    );
+
+    return returnServiceObject({
+      success: true,
+      data: result.insertId
+    });
+  } catch (error) {
+    console.error(error);
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error inserting new transaction",
+      error: error
+    });
+  }
+};
+const generateTransactionNumber = async (conn) => {
+  try {
+    const [rows] = await conn.query(
+      `SELECT id 
+    FROM transactions 
+    ORDER BY id DESC
+    LIMIT 1`
+    );
+    const id = rows[0].id;
+    return returnServiceObject({
+      success: true,
+      data: `BBX-${new Date().getFullYear()}-${String(id).padStart(6, "0")}`
+    });
+  } catch (error) {
+    console.error(error);
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error retrieving transaction details by ID",
+      error: error
+    });
+  }
+};
 module.exports = {
   newTransaction,
   getTransactionsByRecollectionCenterId,
   editTransactionStatusById,
-  getTransactionDetailsById
+  getTransactionDetailsById,
+  newTransactionHistory
 };

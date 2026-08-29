@@ -25,13 +25,10 @@ const newBox = async (boxes, transactionId, userId, conn) => {
     if (!Array.isArray(boxes) || boxes.length === 0) {
       throw new Error("The 'boxes' parameter must be a non-empty array.");
     }
-
     // Restrict batch insert to a maximum of 100 boxes for performance and DB stability
     if (boxes.length > 100) {
       throw new Error("Cannot insert more than 100 boxes at a time.");
     }
-
-    // Build parameter placeholders for each record: "(?, ?, ?, ?, ?, ?)"
     const placeholders = boxes.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
 
     const values = boxes.flatMap((box) => [
@@ -41,15 +38,12 @@ const newBox = async (boxes, transactionId, userId, conn) => {
       userId
     ]);
 
-    // SQL statement for inserting multiple records
     const query = `
       INSERT INTO boxes
       (gender_id, age_id, transaction_id, created_by)
       VALUES ${placeholders};
     `;
-
     const [result] = await conn.query(query, values);
-
     return returnServiceObject({
       success: true,
       data: result

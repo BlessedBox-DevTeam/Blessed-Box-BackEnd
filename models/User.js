@@ -67,7 +67,7 @@ const findByCredentials = async (email, conn) => {
 const findByEmail = async (email, conn) => {
   try {
     const [rows] = await conn.query(
-      "SELECT id AS userId, email, first_name AS firstName, last_name AS lastName, is_active FROM user_details WHERE email = ?",
+      "SELECT id AS userId, email, first_name AS firstName, last_name AS lastName, is_active AS isActive FROM user_details WHERE email = ?",
       [email]
     );
     return returnServiceObject({

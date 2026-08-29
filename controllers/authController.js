@@ -199,6 +199,7 @@ async function verifyOtp(req, res) {
     const { valid, normalizedEmail } = validateEmail(email);
 
     if (!valid || !otp) {
+      1;
       return res.status(400).json({ error: "Email y OTP son obligatorios." });
     }
 
@@ -209,7 +210,7 @@ async function verifyOtp(req, res) {
     if (!userResponse.data) {
       return res.status(404).json({ error: "Usuario no encontrado." });
     }
-    if (userResponse.data.is_active === 1) {
+    if (userResponse.data.isActive) {
       return res.status(400).json({ error: "Usuario ya está verificado." });
     }
     const now = Math.floor(Date.now() / 1000);
@@ -265,10 +266,16 @@ async function resendOtp(req, res) {
       return res.status(400).json({ error: "Usuario ya está verificado." });
     }
 
+    const otpResponse = await dynamo.getUserOtp(userResponse.data.userId);
+    const now = Math.floor(Date.now() / 1000);
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const newOtpHash = await argon2.hash(newOtp);
 
-    await dynamo.onUserResend(userResponse.data.userId, newOtpHash);
+    if (!otpResponse.Item || otpResponse.Item.ttl <= now) {
+      await dynamo.onUserRegistration(userId, email, newOtpHash);
+    } else {
+      await dynamo.onUserResend(userId, newOtpHash);
+    }
 
     await sendOtpMessage({
       userId: userResponse.data.userId,
