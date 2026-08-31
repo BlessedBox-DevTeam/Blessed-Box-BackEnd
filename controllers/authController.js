@@ -86,11 +86,14 @@ async function register(req, res) {
 
     await conn.commit();
     return res.status(201).json({
+      success: true,
       message: "Usuario registrado. Revisa tu correo para confirmar tu cuenta."
     });
   } catch (err) {
     await conn.rollback();
-    return res.status(500).json({ error: err.message || "Error interno" });
+    return res
+      .status(500)
+      .json({ success: false, error: err.message || "Error interno" });
   } finally {
     conn.release();
   }
@@ -239,7 +242,9 @@ async function verifyOtp(req, res) {
   } catch (err) {
     await conn.rollback();
     console.error(err);
-    return res.status(500).json({ error: err.message || "Error interno." });
+    return res
+      .status(500)
+      .json({ success: false, error: err.message || "Error interno." });
   } finally {
     conn.release();
   }
@@ -290,7 +295,9 @@ async function resendOtp(req, res) {
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: err.message || "Error interno." });
+    return res
+      .status(500)
+      .json({ success: false, error: err.message || "Error interno." });
   } finally {
     conn.release();
   }
