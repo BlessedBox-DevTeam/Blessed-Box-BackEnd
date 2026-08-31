@@ -201,6 +201,8 @@ async function verifyOtp(req, res) {
     const { email, otp } = req.body;
     const { valid, normalizedEmail } = validateEmail(email);
 
+    console.log(email, otp);
+
     if (!valid || !otp) {
       return res.status(400).json({ error: "Email y OTP son obligatorios." });
     }
