@@ -7,7 +7,7 @@ const http = require("http");
 const cors = require("cors");
 const helmet = require("helmet");
 const db = require("./db"); // ahora ve las variables correctamente
-const socketSetup = require("./socket");
+// const socketSetup = require("./socket");
 
 // Validar variables críticas
 const PORT = process.env.PORT || 3000;
@@ -16,8 +16,8 @@ if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketSetup(server, db);
-app.set("io", io);
+// const io = socketSetup(server, db);
+// app.set("io", io);
 
 // Middlewares
 app.use(helmet());
