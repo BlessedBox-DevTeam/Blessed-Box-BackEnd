@@ -146,7 +146,7 @@ const getTransactionsByRecollectionCenterId = async ({
 
     const [rows] = await conn.query(query);
 
-    // Total count para paginación (sin filtro de cajas)
+    // Total count for pagination (without box filter)
     const [[{ totalCount }]] = await conn.query(
       `SELECT COUNT(*) AS totalCount
         FROM 

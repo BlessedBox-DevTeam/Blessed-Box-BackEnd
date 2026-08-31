@@ -20,7 +20,7 @@ module.exports = function (server, db) {
   });
 
   io.on("connection", async (socket) => {
-    // 1. Desconectar sesión anterior
+    // 1. Disconnect previous session
     const [session] = await db.query(
       "SELECT socketId FROM usersessions WHERE userId = ?",
       [socket.userId]
@@ -29,7 +29,7 @@ module.exports = function (server, db) {
       io.sockets.sockets.get(session.socket_id).disconnect(true);
     }
 
-    // 2. Guardar nueva sesión
+    // 2. Save new session
     await db.query(
       "INSERT INTO usersessions (userId, socketId) VALUES (?, ?) ON DUPLICATE KEY UPDATE socketId = ?, last_connected = NOW()",
       [socket.userId, socket.id, socket.id]

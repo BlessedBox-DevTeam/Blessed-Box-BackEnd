@@ -6,10 +6,10 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const helmet = require("helmet");
-const db = require("./db"); // ahora ve las variables correctamente
+const db = require("./db"); // now sees the variables correctly
 // const socketSetup = require("./socket");
 
-// Validar variables críticas
+// Validate critical variables
 const PORT = process.env.PORT || 3000;
 
 if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
@@ -42,19 +42,19 @@ app.use("/api/boxes", require("./routes/boxes"));
 // Health check (verifica servidor y DB)
 app.get("/health", async (req, res) => {
   try {
-    await db.query("SELECT 1"); // simple query para comprobar DB
+    await db.query("SELECT 1"); // simple query to check DB
     res
       .status(200)
-      .json({ message: "Servidor y DB funcionando correctamente" });
+      .json({ message: "Server and DB working correctly" });
   } catch (err) {
-    res.status(500).json({ message: "DB caída", error: err.message });
+    res.status(500).json({ message: "DB down", error: err.message });
   }
 });
 
-// Middleware global de errores
+// Global error middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: "Algo salió mal en el servidor" });
+  res.status(500).json({ error: "Something went wrong on the server" });
 });
 
 // Inicializar servidor

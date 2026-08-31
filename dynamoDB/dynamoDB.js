@@ -19,11 +19,11 @@ const onAppOpen = async (userId, sessionId) => {
     const command = new PutCommand({
       TableName: "dev-app-sessions",
       Item: {
-        userId: String(userId), // Partition Key (Unica por usuario si solo permites 1 dispositivo)
-        sessionId: sessionId, // Token interno de control de sesión
+        userId: String(userId), // Partition Key (Unique per user if you only allow 1 device)
+        sessionId: sessionId, // Internal session control token
         status: "ACTIVE",
         lastLogin: Math.floor(Date.now() / 1000),
-        expiresAt: expiresAt // DynamoDB TTL borrará esto automáticamente si el usuario no vuelve
+        expiresAt: expiresAt // DynamoDB TTL will automatically delete this if the user doesn't return
       }
     });
     await docClient.send(command);
@@ -50,7 +50,7 @@ const onUserRegistration = async (userId, email, otpHash) => {
     });
     await docClient.send(command);
   } catch (error) {
-    console.error("Error al registrar OTP en DynamoDB:", error);
+    console.error("Error registering OTP in DynamoDB:", error);
     throw error;
   }
 };
@@ -115,7 +115,7 @@ const onUserResend = async (userId, newOtpHash) => {
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
       throw new Error(
-        "Debes esperar 60 segundos o alcanzaste el límite de reenvíos."
+        "You must wait 60 seconds or you have reached the resend limit."
       );
     }
 
@@ -142,7 +142,7 @@ const onUserBadAttempt = async (userId) => {
     await docClient.send(command);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
-      throw new Error("Máximo de intentos alcanzado.");
+      throw new Error("Maximum attempts reached.");
     }
     throw error;
   }
@@ -159,7 +159,7 @@ const onAppClose = async (userId) => {
   try {
     await docClient.send(command);
   } catch (error) {
-    console.error("Error al cerrar sesión:", error);
+    console.error("Error closing session:", error);
     throw error;
   }
 };

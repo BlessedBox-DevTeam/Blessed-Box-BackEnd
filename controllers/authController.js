@@ -22,7 +22,7 @@ const { sendRegistrationMessage, sendOtpMessage } = require("../sqs/SQS");
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET no está definido. Configura tu archivo .env");
+  throw new Error("JWT_SECRET is not defined. Configure your .env file");
 }
 
 async function register(req, res) {
@@ -33,14 +33,14 @@ async function register(req, res) {
     const { password, email, name, lastName } = req.body;
     const { valid, normalizedEmail } = validateEmail(email);
     if (!valid) {
-      throw new Error("Formato de email incorrecto");
+      throw new Error("Email format incorrect");
     }
 
     const existing = await findByCredentials(normalizedEmail, conn);
     if (existing.success && existing.data) {
       return res.status(200).json({
-        message:
-          "Si no existe una cuenta con este email, recibirás instrucciones por correo."
+        success: false,
+        message: "If an account exists, you will receive instructions."
       });
     }
 
@@ -87,13 +87,13 @@ async function register(req, res) {
     await conn.commit();
     return res.status(201).json({
       success: true,
-      message: "Usuario registrado. Revisa tu correo para confirmar tu cuenta."
+      message: "User registered. Check your email to confirm your account."
     });
   } catch (err) {
     await conn.rollback();
     return res
       .status(500)
-      .json({ success: false, error: err.message || "Error interno" });
+      .json({ success: false, error: err.message || "Internal server error" });
   } finally {
     conn.release();
   }
@@ -181,7 +181,7 @@ async function login(req, res) {
 
     return res.json({
       success: true,
-      message: "Login exitoso",
+      message: "Login successful",
       accessToken,
       refreshToken
     });
@@ -202,7 +202,7 @@ async function verifyOtp(req, res) {
     const { valid, normalizedEmail } = validateEmail(email);
 
     if (!valid || !otp) {
-      return res.status(400).json({ error: "Email y OTP son obligatorios." });
+      return res.status(400).json({ error: "Email and OTP are required." });
     }
 
     const userResponse = await findByEmail(normalizedEmail, conn);
@@ -213,30 +213,30 @@ async function verifyOtp(req, res) {
       return res.status(404).json({ error: "Usuario no encontrado." });
     }
     if (userResponse.data.isActive) {
-      return res.status(400).json({ error: "Usuario ya está verificado." });
+      return res.status(400).json({ error: "User is already verified." });
     }
     const now = Math.floor(Date.now() / 1000);
     const otpResponse = await dynamo.getUserOtp(userResponse.data.userId);
     if (!otpResponse.Item || otpResponse.Item.ttl <= now) {
-      return res.status(404).json({ error: "OTP no encontrado o expirado." });
+      return res.status(404).json({ error: "OTP not found or expired." });
     }
     const isValid = await argon2.verify(otpResponse.Item.otpHash, String(otp));
     if (!isValid) {
       await dynamo.onUserBadAttempt(userResponse.data.userId);
-      return res.status(401).json({ error: "OTP incorrecto." });
+      return res.status(401).json({ error: "Incorrect OTP." });
     }
 
     await conn.beginTransaction();
     const activateResponse = await activateUser(userResponse.data.userId, conn);
     if (!activateResponse.success) {
-      throw new Error(activateResponse.message || "Error activando usuario.");
+      throw new Error(activateResponse.message || "Error activating user.");
     }
     await dynamo.deleteUserOtp(userResponse.data.userId);
     await conn.commit();
 
     return res.status(200).json({
       success: true,
-      message: "Usuario verificado correctamente. Ya puedes iniciar sesión."
+      message: "User verified successfully. You can now sign in."
     });
   } catch (err) {
     await conn.rollback();
@@ -256,7 +256,7 @@ async function resendOtp(req, res) {
     const { valid, normalizedEmail } = validateEmail(email);
 
     if (!valid) {
-      return res.status(400).json({ error: "Email no válido." });
+      return res.status(400).json({ error: "Invalid email." });
     }
 
     const userResponse = await findByEmail(normalizedEmail, conn);
@@ -267,7 +267,7 @@ async function resendOtp(req, res) {
       return res.status(404).json({ error: "Usuario no encontrado." });
     }
     if (userResponse.data.isActive === 1) {
-      return res.status(400).json({ error: "Usuario ya está verificado." });
+      return res.status(400).json({ error: "User is already verified." });
     }
 
     const otpResponse = await dynamo.getUserOtp(userResponse.data.userId);

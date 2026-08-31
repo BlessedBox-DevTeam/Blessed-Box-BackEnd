@@ -3,12 +3,12 @@ var Service = require('node-windows').Service;
 
 var svc = new Service({
   name: 'MiServidorNodeEC2',
-  description: 'Servidor Node.js de mi aplicación web.',
+  description: 'Node.js server for my web application.',
   
   script: 'C:\BlessedBox\Blessed-Box-BackEnd\app.js',
   workingDirectory: 'C:\BlessedBox\Blessed-Box-BackEnd', 
   
-  // LÍNEA CRÍTICA para el diagnóstico
+  // CRITICAL LINE for diagnosis
   logDirectory: 'C:\BlessedBox\Blessed-Box-BackEnd\logs',
   
   nodeOptions: [
@@ -17,12 +17,12 @@ var svc = new Service({
 });
 
 svc.on('install', function(){
-  console.log('Servicio instalado correctamente. Iniciando...');
+  console.log('Service installed successfully. Starting...');
   svc.start();
 });
 
 svc.on('error', function(err){
-  console.error('Ocurrió un error en la instalación o el servicio:', err);
+  console.error('An error occurred during installation or service:', err);
 });
 
 svc.install();

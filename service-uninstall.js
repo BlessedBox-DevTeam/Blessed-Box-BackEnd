@@ -2,12 +2,12 @@
 
 var svc = new Service({
   name: 'MiServidorNodeEC2',
-  // ¡CRÍTICO! Debes incluir la ruta del script, aunque solo vayas a desinstalar.
+  // CRITICAL! You must include the script path, even if you're only uninstalling.
   script: 'C:\BlessedBox\Blessed-Box-BackEnd\app.js' 
 });
 
 svc.on('uninstall', function(){
-  console.log('Servicio desinstalado.');
+  console.log('Service uninstalled.');
 });
 
 svc.uninstall();

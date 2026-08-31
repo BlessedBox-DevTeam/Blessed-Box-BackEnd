@@ -5,7 +5,7 @@ const QUEUE_URL = process.env.SQS_QUEUE_URL;
 
 if (!QUEUE_URL) {
   throw new Error(
-    "SQS_QUEUE_URL no está definido en las variables de entorno."
+    "SQS_QUEUE_URL is not defined in environment variables."
   );
 }
 
