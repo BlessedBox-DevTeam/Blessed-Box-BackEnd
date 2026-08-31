@@ -266,7 +266,7 @@ async function resendOtp(req, res) {
     if (!userResponse.data) {
       return res.status(404).json({ error: "Usuario no encontrado." });
     }
-    if (userResponse.data.is_active === 1) {
+    if (userResponse.data.isActive === 1) {
       return res.status(400).json({ error: "Usuario ya está verificado." });
     }
 
