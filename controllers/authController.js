@@ -201,9 +201,8 @@ async function verifyOtp(req, res) {
     const { email, otp } = req.body;
     const { valid, normalizedEmail } = validateEmail(email);
 
-    console.log(email, otp);
-
     if (!valid || !otp) {
+      console.log("isvalid", valid);
       return res.status(400).json({ error: "Email y OTP son obligatorios." });
     }
 
@@ -215,6 +214,7 @@ async function verifyOtp(req, res) {
       return res.status(404).json({ error: "Usuario no encontrado." });
     }
     if (userResponse.data.isActive) {
+      console.log(userResponse.data);
       return res.status(400).json({ error: "Usuario ya está verificado." });
     }
     const now = Math.floor(Date.now() / 1000);
