@@ -271,6 +271,7 @@ async function resendOtp(req, res) {
     }
 
     const otpResponse = await dynamo.getUserOtp(userResponse.data.userId);
+    const userId = userResponse.data.userId;
     const now = Math.floor(Date.now() / 1000);
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const newOtpHash = await argon2.hash(newOtp);
@@ -282,7 +283,7 @@ async function resendOtp(req, res) {
     }
 
     await sendOtpMessage({
-      userId: userResponse.data.userId,
+      userId: userId,
       email: normalizedEmail,
       name: userResponse.data.firstName,
       lastName: userResponse.data.lastName,
