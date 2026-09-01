@@ -188,6 +188,29 @@ const updateLastLogin = async (userId, conn) => {
     });
   }
 };
+const updatePassword = async (userId, passwordHash, conn) => {
+  try {
+    const [rows] = await conn.query(
+      `UPDATE user_details
+       SET password_hash = ?
+       WHERE id = ?
+       AND isActive = 1`,
+      [passwordHash, userId]
+    );
+    return returnServiceObject({
+      success: true,
+      data: rows || null
+    });
+  } catch (error) {
+    console.error(error);
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error updating last login",
+      error: error
+    });
+  }
+};
 
 module.exports = {
   newUserDetails,
@@ -197,5 +220,6 @@ module.exports = {
   getPermissionsByRoleIds,
   updateLastLogin,
   findByEmail,
-  activateUser
+  activateUser,
+  updatePassword
 };

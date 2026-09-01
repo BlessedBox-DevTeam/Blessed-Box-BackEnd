@@ -43,9 +43,7 @@ app.use("/api/boxes", require("./routes/boxes"));
 app.get("/health", async (req, res) => {
   try {
     await db.query("SELECT 1"); // simple query to check DB
-    res
-      .status(200)
-      .json({ message: "Server and DB working correctly" });
+    res.status(200).json({ message: "Server and DB working correctly" });
   } catch (err) {
     res.status(500).json({ message: "DB down", error: err.message });
   }

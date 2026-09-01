@@ -6,7 +6,8 @@ const {
   getUserRolesByUserId,
   newUserRole,
   updateLastLogin,
-  getPermissionsByRoleIds
+  getPermissionsByRoleIds,
+  updatePassword
 } = require("../models/User");
 const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
@@ -207,10 +208,10 @@ async function verifyOtp(req, res) {
 
     const userResponse = await findByEmail(normalizedEmail, conn);
     if (!userResponse.success) {
-      return res.status(500).json({ error: "Error al buscar usuario." });
+      return res.status(500).json({ error: "Error at finding user." });
     }
     if (!userResponse.data) {
-      return res.status(404).json({ error: "Usuario no encontrado." });
+      return res.status(404).json({ error: "User not found." });
     }
     if (userResponse.data.isActive) {
       return res.status(400).json({ error: "User is already verified." });
@@ -291,13 +292,13 @@ async function resendOtp(req, res) {
     });
     return res.status(200).json({
       success: true,
-      message: "OTP reenviado. Revisa tu correo."
+      message: "OTP sent. Please verify your email."
     });
   } catch (err) {
     console.error(err);
     return res
       .status(500)
-      .json({ success: false, error: err.message || "Error interno." });
+      .json({ success: false, error: err.message || "Internal Error." });
   } finally {
     conn.release();
   }
@@ -446,6 +447,129 @@ async function logout(req, res) {
     });
   }
 }
+async function forgotPassword(req, res) {
+  const conn = await db.getConnection();
+  try {
+    const { email } = req.body;
+    const { valid, normalizedEmail } = validateEmail(email);
+    if (!valid) {
+      throw new Error("Email format incorrect");
+    }
+
+    const userResponse = await findByEmail(normalizedEmail, conn);
+    if (
+      !userResponse.success ||
+      !userResponse.data ||
+      !userResponse.data.isActive
+    ) {
+      return res.status(500).json({ error: "Error at finding user." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await argon2.hash(otp);
+
+    await dynamo.onUserRegistration(
+      userResponse.data.userId,
+      normalizedEmail,
+      otpHash
+    );
+
+    await sendOtpMessage({
+      userId: userId,
+      email: normalizedEmail,
+      name: userResponse.data.firstName,
+      lastName: userResponse.data.lastName,
+      otp: newOtp
+    });
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent. Please verify your email."
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error."
+    });
+  } finally {
+    conn.release();
+  }
+}
+async function verifyResetPasswordOtp(req, res) {
+  const conn = await db.getConnection();
+  try {
+    const { email, otp } = req.body;
+    const { valid, normalizedEmail } = validateEmail(email);
+
+    if (!valid || !otp) {
+      return res.status(400).json({ error: "Email and OTP are required." });
+    }
+
+    const userResponse = await findByEmail(normalizedEmail, conn);
+    if (!userResponse.success) {
+      return res.status(500).json({ error: "Error at finding user." });
+    }
+    if (!userResponse.data) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const otpResponse = await dynamo.getUserOtp(userResponse.data.userId);
+    if (!otpResponse.Item || otpResponse.Item.ttl <= now) {
+      return res.status(404).json({ error: "OTP not found or expired." });
+    }
+    const isValid = await argon2.verify(otpResponse.Item.otpHash, String(otp));
+    if (!isValid) {
+      await dynamo.onUserBadAttempt(userResponse.data.userId);
+      return res.status(401).json({ error: "Incorrect OTP." });
+    }
+
+    const accessToken = jwt.sign(
+      { userId: userResponse.data.userId },
+      JWT_SECRET,
+      { expiresIn: "5m" }
+    );
+    await dynamo.deleteUserOtp(userResponse.data.userId);
+
+    return res.status(200).json({
+      success: true,
+      accessToken,
+      message: "OTP verified successfully."
+    });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ success: false, error: err.message || "Internal Error." });
+  } finally {
+    conn.release();
+  }
+}
+async function changePassword(req, res) {
+  const conn = await db.getConnection();
+  try {
+    const { userId } = req.user;
+    const { password } = req.body;
+    if (!password) throw new Error("Password not provided.");
+
+    const passwordHash = await argon2.hash(password);
+    const userResponse = await updatePassword(userId, passwordHash, conn);
+    if (!userResponse.success) {
+      return res.status(500).json({ error: "Error updating user." });
+    }
+    conn.commit();
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully."
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error."
+    });
+  } finally {
+    conn.release();
+  }
+}
 function verifyRefreshToken(token) {
   try {
     return {
@@ -466,5 +590,8 @@ module.exports = {
   verifyOtp,
   resendOtp,
   logout,
-  refreshToken
+  refreshToken,
+  forgotPassword,
+  verifyResetPasswordOtp,
+  changePassword
 };

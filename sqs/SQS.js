@@ -4,9 +4,7 @@ const REGION = process.env.AWS_REGION || "us-east-2";
 const QUEUE_URL = process.env.SQS_QUEUE_URL;
 
 if (!QUEUE_URL) {
-  throw new Error(
-    "SQS_QUEUE_URL is not defined in environment variables."
-  );
+  throw new Error("SQS_QUEUE_URL is not defined in environment variables.");
 }
 
 const sqsClient = new SQSClient({ region: REGION });
