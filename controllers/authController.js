@@ -159,9 +159,7 @@ async function login(req, res) {
     const refreshToken = jwt.sign(
       {
         userId: data.userId,
-        email: data.email,
-        roles: roles,
-        permissions: permissionsResponse.data
+        email: data.email
       },
       JWT_REFRESH_SECRET,
       { expiresIn: "7d" }
@@ -304,7 +302,7 @@ async function resendOtp(req, res) {
   }
 }
 
-async function refreshToken(req, res) {
+async function refreshTokens(req, res) {
   let conn;
 
   try {
@@ -378,9 +376,7 @@ async function refreshToken(req, res) {
     const newRefreshToken = jwt.sign(
       {
         userId,
-        email,
-        roles: roles,
-        permissions: permissionsResponse.data
+        email
       },
       JWT_REFRESH_SECRET,
       { expiresIn: "7d" }
@@ -590,7 +586,7 @@ module.exports = {
   verifyOtp,
   resendOtp,
   logout,
-  refreshToken,
+  refreshTokens,
   forgotPassword,
   verifyResetPasswordOtp,
   changePassword
