@@ -1,3 +1,5 @@
+const { returnServiceObject } = require("../helpers/helpers");
+
 const newRecollectionCenter = async (code, name, createdBy, conn) => {
   try {
     const [result] = await conn.query(
@@ -12,7 +14,6 @@ const newRecollectionCenter = async (code, name, createdBy, conn) => {
       data: result
     });
   } catch (error) {
-    await conn.rollback();
     console.error(error);
     return returnServiceObject({
       success: false,

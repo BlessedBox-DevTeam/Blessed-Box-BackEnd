@@ -1,3 +1,4 @@
+const db = require("../db.js");
 const { newRecollectionCenter } = require("../models/RecollectionCenter");
 
 async function writeNewRecollectionCenter(req, res) {
@@ -8,6 +9,8 @@ async function writeNewRecollectionCenter(req, res) {
     await newRecollectionCenter(code, name, userId, conn);
     res.status(201).json({ message: "RC generated successfully." });
   } catch (error) {
+    console.error(error);
+    conn.rollback();
     res.status(500).json({ error: "Error generating recollection center." });
   } finally {
     conn.release();
