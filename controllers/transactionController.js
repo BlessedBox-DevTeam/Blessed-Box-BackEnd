@@ -70,7 +70,7 @@ async function writeNewTransaction(req, res) {
     if (!newBoxResponse.success) {
       return res.status(500).json({ message: "Error creating boxes." });
     }
-    conn.commit();
+    await conn.commit();
     const io = req.app.get("io");
     io.emit("transaction:new", {
       id: transactionId,
@@ -208,11 +208,11 @@ async function updateTransactionStatus(req, res) {
       });
     }
 
-    conn.commit();
+    await conn.commit();
     const io = req.app.get("io");
     io.emit("transaction:statusUpdated", {
       id: transactionId,
-      statusCode: statusCode
+      statusCode: statusId
     });
 
     return res.json({

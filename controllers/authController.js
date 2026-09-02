@@ -556,7 +556,7 @@ async function changePassword(req, res) {
     if (!userResponse.success) {
       return res.status(500).json({ error: "Error updating user." });
     }
-    conn.commit();
+    await conn.commit();
     return res.status(200).json({
       success: true,
       message: "Password changed successfully."

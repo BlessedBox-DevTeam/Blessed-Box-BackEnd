@@ -1,9 +1,4 @@
-const dotenv = require("dotenv");
-dotenv.config();
 const mysql = require("mysql2/promise");
-
-// Cargar variables antes de usar
-const env = process.env.NODE_ENV || "development";
 
 const db = mysql.createPool({
   host: process.env.DB_HOST,
