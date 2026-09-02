@@ -110,10 +110,9 @@ async function login(req, res) {
 
     const { success, data, error } = await findByCredentials(email, conn);
     if (!success) {
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error.(findByCredentials)"
-      });
+      throw new Error(
+        error?.message || "Internal server error.(findByCredentials)"
+      );
     }
     if (!data) {
       return res
@@ -131,32 +130,26 @@ async function login(req, res) {
 
     const rolesResponse = await getUserRolesByUserId(data.userId, conn);
     if (!rolesResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message:
-          rolesResponse.message ||
-          "Internal server error (getUserRolesByUserId)."
-      });
+      throw new Error(
+        rolesResponse.message || "Internal server error (getUserRolesByUserId)."
+      );
     }
     const roleIds = rolesResponse.data.map((role) => role.roleId);
     const roles = rolesResponse.data.map(({ roleId, ...role }) => role);
 
     const permissionsResponse = await getPermissionsByRoleIds(roleIds, conn);
     if (!permissionsResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message:
-          permissionsResponse.message ||
+      throw new Error(
+        permissionsResponse.message ||
           "Internal server error (getPermissionsByRoleIds)."
-      });
+      );
     }
 
     const lastLoginResponse = await updateLastLogin(data.userId, conn);
     if (!lastLoginResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error (updateLastLogin)."
-      });
+      throw new Error(
+        lastLoginResponse.message || "Internal server error (updateLastLogin)."
+      );
     }
 
     const refreshToken = jwt.sign(
@@ -210,7 +203,7 @@ async function verifyOtp(req, res) {
 
     const userResponse = await findByEmail(normalizedEmail, conn);
     if (!userResponse.success) {
-      return res.status(500).json({ error: "Error at finding user." });
+      throw new Error(userResponse.message || "Error at finding user.");
     }
     if (!userResponse.data) {
       return res.status(404).json({ error: "User not found." });
@@ -264,7 +257,7 @@ async function resendOtp(req, res) {
 
     const userResponse = await findByEmail(normalizedEmail, conn);
     if (!userResponse.success) {
-      return res.status(500).json({ error: "Error al buscar usuario." });
+      throw new Error(userResponse.message || "Error al buscar usuario.");
     }
     if (!userResponse.data) {
       return res.status(404).json({ error: "Usuario no encontrado." });
@@ -357,33 +350,26 @@ async function refreshTokens(req, res) {
     conn = await db.getConnection();
     const rolesResponse = await getUserRolesByUserId(userId, conn);
     if (!rolesResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message:
-          rolesResponse.message ||
-          "Internal server error (getUserRolesByUserId)."
-      });
+      throw new Error(
+        rolesResponse.message || "Internal server error (getUserRolesByUserId)."
+      );
     }
     const roleIds = rolesResponse.data.map((role) => role.roleId);
     const roles = rolesResponse.data.map(({ roleId, ...role }) => role);
 
     const permissionsResponse = await getPermissionsByRoleIds(roleIds, conn);
     if (!permissionsResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message:
-          permissionsResponse.message ||
+      throw new Error(
+        permissionsResponse.message ||
           "Internal server error (getPermissionsByRoleIds)."
-      });
+      );
     }
     const userRCResponse = await getUserRecollectionCenter(userId, conn);
     if (!userRCResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message:
-          userRCResponse.message ||
+      throw new Error(
+        userRCResponse.message ||
           "Internal server error (getUserRecollectionCenter)."
-      });
+      );
     }
 
     const newRefreshToken = jwt.sign(
@@ -467,11 +453,10 @@ async function forgotPassword(req, res) {
     }
 
     const userResponse = await findByEmail(normalizedEmail, conn);
-    if (
-      !userResponse.success ||
-      !userResponse.data ||
-      !userResponse.data.isActive
-    ) {
+    if (!userResponse.success) {
+      throw new Error(userResponse.message || "Error at finding user.");
+    }
+    if (!userResponse.data || !userResponse.data.isActive) {
       return res.status(500).json({ error: "Error at finding user." });
     }
 
@@ -516,7 +501,7 @@ async function verifyResetPasswordOtp(req, res) {
 
     const userResponse = await findByEmail(normalizedEmail, conn);
     if (!userResponse.success) {
-      return res.status(500).json({ error: "Error at finding user." });
+      throw new Error(userResponse.message || "Error at finding user.");
     }
     if (!userResponse.data) {
       return res.status(404).json({ error: "User not found." });
@@ -564,7 +549,7 @@ async function changePassword(req, res) {
     const passwordHash = await argon2.hash(password);
     const userResponse = await updatePassword(userId, passwordHash, conn);
     if (!userResponse.success) {
-      return res.status(500).json({ error: "Error updating user." });
+      throw new Error(userResponse.message || "Error updating user.");
     }
     await conn.commit();
     return res.status(200).json({

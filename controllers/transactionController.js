@@ -46,12 +46,10 @@ async function writeNewTransaction(req, res) {
       conn
     );
     if (!transactionResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message:
-          transactionResponse.message ||
+      throw new Error(
+        transactionResponse.message ||
           "Internal server error (transactionResponse)."
-      });
+      );
     }
     const transactionId = transactionResponse.data;
     // Flatten boxes according to quantity
@@ -71,7 +69,7 @@ async function writeNewTransaction(req, res) {
       conn
     );
     if (!newBoxResponse.success) {
-      return res.status(500).json({ message: "Error creating boxes." });
+      throw new Error(newBoxResponse.message || "Error creating boxes.");
     }
     await conn.commit();
     const io = req.app.get("io");
@@ -85,11 +83,11 @@ async function writeNewTransaction(req, res) {
       message: "Your transaction has been made."
     });
   } catch (error) {
-    console.error(err);
+    console.error(error);
     await conn.rollback();
     return res
       .status(500)
-      .json({ error: err.message || "Internal server error." });
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }
@@ -156,16 +154,16 @@ async function getTransactionsByRecollectionCenter(req, res) {
       conn: conn
     });
     if (!transactionsResponse.success) {
-      return res.status(500).json({
-        message: "Error fetching transactions."
-      });
+      throw new Error(
+        transactionsResponse.message || "Error fetching transactions."
+      );
     }
     return res.json({ response: transactionsResponse.data });
   } catch (error) {
     console.error(error);
     return res
       .status(500)
-      .json({ error: err.message || "Internal server error." });
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }
@@ -196,9 +194,9 @@ async function updateTransactionStatus(req, res) {
       conn
     );
     if (!editTransactionResponse.success) {
-      return res.status(500).json({
-        message: "Error updating transaction status."
-      });
+      throw new Error(
+        editTransactionResponse.message || "Error updating transaction status."
+      );
     }
     const transactionHistoryResponse = await newTransactionHistory(
       transactionId,
@@ -207,9 +205,10 @@ async function updateTransactionStatus(req, res) {
       conn
     );
     if (!transactionHistoryResponse.success) {
-      return res.status(500).json({
-        message: "Error inserting transaction history."
-      });
+      throw new Error(
+        transactionHistoryResponse.message ||
+          "Error inserting transaction history."
+      );
     }
 
     await conn.commit();
@@ -228,7 +227,7 @@ async function updateTransactionStatus(req, res) {
     await conn.rollback();
     return res
       .status(500)
-      .json({ error: err.message || "Internal server error." });
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }
@@ -248,15 +247,16 @@ async function getTransactionDetails(req, res) {
       conn
     );
     if (!transactionDetailsResponse.success) {
-      return res.status(500).json({
-        message: "Error fetching transaction details."
-      });
+      throw new Error(
+        transactionDetailsResponse.message ||
+          "Error fetching transaction details."
+      );
     }
     const boxesResponse = await getBoxesByTransactionId(transactionId, conn);
     if (!boxesResponse.success) {
-      return res.status(500).json({
-        message: "Error fetching boxes for transaction."
-      });
+      throw new Error(
+        boxesResponse.message || "Error fetching boxes for transaction."
+      );
     }
     return res.json({
       response: {
@@ -266,6 +266,9 @@ async function getTransactionDetails(req, res) {
     });
   } catch (error) {
     console.error(error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }

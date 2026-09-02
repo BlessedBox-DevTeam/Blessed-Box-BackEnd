@@ -15,9 +15,10 @@ async function writeNewRecollectionCenter(req, res) {
       conn
     );
     if (!newRecollectionCenterResponse.success) {
-      return res.status(500).json({
-        message: "Recollection center generated successfully."
-      });
+      throw new Error(
+        newRecollectionCenterResponse.message ||
+          "Error generating recollection center."
+      );
     }
     await conn.commit();
     return res.status(201).json({
