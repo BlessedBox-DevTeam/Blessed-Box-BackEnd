@@ -16,9 +16,10 @@ async function writeNewRecollectionCenter(req, res) {
     );
     if (!newRecollectionCenterResponse.success) {
       return res.status(500).json({
-        message: "Error inserting transaction history."
+        message: "Recollection center generated successfully."
       });
     }
+    await conn.commit();
     return res.status(201).json({
       response: newRecollectionCenterResponse.data,
       message: "Recollection center generated successfully."
