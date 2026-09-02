@@ -4,14 +4,31 @@ const { newRecollectionCenter } = require("../models/RecollectionCenter");
 async function writeNewRecollectionCenter(req, res) {
   const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
     const { code, name } = req.body;
     const { userId } = req.user;
-    await newRecollectionCenter(code, name, userId, conn);
-    res.status(201).json({ message: "RC generated successfully." });
+
+    const newRecollectionCenterResponse = await newRecollectionCenter(
+      code,
+      name,
+      userId,
+      conn
+    );
+    if (!newRecollectionCenterResponse.success) {
+      return res.status(500).json({
+        message: "Error inserting transaction history."
+      });
+    }
+    return res.status(201).json({
+      response: newRecollectionCenterResponse.data,
+      message: "Recollection center generated successfully."
+    });
   } catch (error) {
     console.error(error);
-    conn.rollback();
-    res.status(500).json({ error: "Error generating recollection center." });
+    await conn.rollback();
+    return res
+      .status(500)
+      .json({ error: "Error generating recollection center." });
   } finally {
     conn.release();
   }
