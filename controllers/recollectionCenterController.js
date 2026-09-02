@@ -1,33 +1,19 @@
-const {
-  newRecollectionCenter,
-  getRecollectionCenterById
-} = require("../models/RecollectionCenter");
+const { newRecollectionCenter } = require("../models/RecollectionCenter");
 
 async function writeNewRecollectionCenter(req, res) {
-  const { name, countryId, location } = req.body;
+  const conn = await db.getConnection();
   try {
-    await newRecollectionCenter(name, countryId, location, 1);
-    res.status(201).json({ message: "Centro generado exitosamente" });
+    const { code, name } = req.body;
+    const { userId } = req.user;
+    await newRecollectionCenter(code, name, userId, conn);
+    res.status(201).json({ message: "RC generated successfully." });
   } catch (error) {
-    res.status(500).json({ error: "Error al genere centro" });
-  }
-}
-
-async function getUserRecollectionCenter(req, res) {
-  const { recollectionCenterId } = req.body;
-  try {
-    const isValid = await getRecollectionCenterById(recollectionCenterId);
-    if (isValid) {
-      res.json({ message: "Centro de usuario encontrado" });
-    } else {
-      res.json({ message: "Centro no encontrado" });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Error" });
+    res.status(500).json({ error: "Error generating recollection center." });
+  } finally {
+    conn.release();
   }
 }
 
 module.exports = {
-  writeNewRecollectionCenter,
-  getUserRecollectionCenter
+  writeNewRecollectionCenter
 };

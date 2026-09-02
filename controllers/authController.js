@@ -19,6 +19,9 @@ const {
 const { STAFF_ROLE_TYPE_ID } = require("../helpers/constants.js");
 const dynamo = require("../dynamoDB/dynamoDB.js");
 const { sendRegistrationMessage, sendOtpMessage } = require("../sqs/SQS");
+const {
+  getUserRecollectionCenter
+} = require("../models/RecollectionCenter.js");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -168,6 +171,7 @@ async function login(req, res) {
       {
         userId: data.userId,
         email: data.email,
+        recollectionCenterId: data.recollectionCenterId,
         roles: roles,
         permissions: permissionsResponse.data
       },
@@ -372,6 +376,15 @@ async function refreshTokens(req, res) {
           "Internal server error (getPermissionsByRoleIds)."
       });
     }
+    const userRCResponse = await getUserRecollectionCenter(userId, conn);
+    if (!userRCResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          userRCResponse.message ||
+          "Internal server error (getUserRecollectionCenter)."
+      });
+    }
 
     const newRefreshToken = jwt.sign(
       {
@@ -387,6 +400,7 @@ async function refreshTokens(req, res) {
         userId,
         email,
         roles: roles,
+        recollectionCenterId: userRCResponse.data?.recollectionCenterId,
         permissions: permissionsResponse.data
       },
       JWT_SECRET,

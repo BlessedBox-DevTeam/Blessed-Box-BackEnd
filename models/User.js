@@ -46,7 +46,14 @@ const newUserRole = async (userId, roleId, conn) => {
 const findByCredentials = async (email, conn) => {
   try {
     const [rows] = await conn.query(
-      "SELECT password_hash AS passwordHash, id AS userId, email FROM user_details WHERE email = ? AND is_active = 1",
+      `SELECT 
+        password_hash AS passwordHash,
+        recollection_center_id AS recollectionCenterId,
+        id AS userId,
+        email 
+      FROM user_details 
+      WHERE email = ? 
+        AND is_active = 1`,
       [email]
     );
     return returnServiceObject({

@@ -18,8 +18,11 @@ module.exports = function (server) {
   });
 
   io.on("connection", (socket) => {
-    const userId = socket.user.userId;
-    socket.join(`user:${userId}`);
+    const recollectionCenterId = socket.user.recollectionCenterId;
+    socket.join("global");
+    if (recollectionCenterId) {
+      socket.join(`center:${recollectionCenterId}`);
+    }
   });
 
   return io;

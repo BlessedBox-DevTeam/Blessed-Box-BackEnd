@@ -13,7 +13,10 @@ const {
   AGE_MAP,
   PENDING_STATUS_ID,
   COMPLETED_STATUS_ID,
-  MANAGER_ROLE_CODE
+  MANAGER_ROLE_CODE,
+  SOCKET_EVENT_NEW_TRANSACTION,
+  SOCKET_EVENT_NEW_BOX_COUNT,
+  SOCKET_EVENT_TRANSACTION_UPDATED
 } = require("../helpers/constants");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
 /**
@@ -72,10 +75,11 @@ async function writeNewTransaction(req, res) {
     }
     await conn.commit();
     const io = req.app.get("io");
-    io.emit("transaction:new", {
-      id: transactionId,
-      boxes: newBoxResponse.data
-    });
+    io.to(`center:${req.user.recollectionCenterId}`).emit(
+      SOCKET_EVENT_NEW_TRANSACTION
+    );
+    io.to(`global`).emit(SOCKET_EVENT_NEW_BOX_COUNT);
+
     res.status(201).json({
       response: { transactionId, boxes: newBoxResponse.data },
       message: "Your transaction has been made."
@@ -210,10 +214,10 @@ async function updateTransactionStatus(req, res) {
 
     await conn.commit();
     const io = req.app.get("io");
-    io.emit("transaction:statusUpdated", {
-      id: transactionId,
-      statusCode: statusId
-    });
+    io.to(`center:${req.user.recollectionCenterId}`).emit(
+      SOCKET_EVENT_TRANSACTION_UPDATED
+    );
+    io.to(`global`).emit(SOCKET_EVENT_NEW_BOX_COUNT);
 
     return res.json({
       response: editTransactionResponse.data,
