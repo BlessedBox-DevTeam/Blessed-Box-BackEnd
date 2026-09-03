@@ -28,6 +28,11 @@ module.exports = {
   READ_OWN_TRANSACTION_PERMISSION: "READ_OWN_TRANSACTIONS",
   READ_RC_BOX_COUNT_PERMISSION: "READ_RC_BOX_COUNT",
 
+  // Socket events
+  SOCKET_EVENT_NEW_TRANSACTION: "transaction:new",
+  SOCKET_EVENT_TRANSACTION_UPDATED: "transaction:updated",
+  SOCKET_EVENT_NEW_BOX_COUNT: "boxCount:new",
+
   // Mapas
   AGE_MAP: {
     "2-4": 1,

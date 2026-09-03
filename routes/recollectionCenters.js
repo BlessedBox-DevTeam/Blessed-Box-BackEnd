@@ -5,11 +5,6 @@ const { authenticate } = require("../middleware/authenticate");
 const { authorize } = require("../middleware/authorize");
 const permissions = require("../helpers/constants");
 
-router.get(
-  "/userRecollectionCenter",
-  authenticate,
-  recollectionCenterController.getUserRecollectionCenter
-);
 router.post(
   "/newRecollectionCenter",
   authenticate,

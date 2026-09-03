@@ -1,13 +1,12 @@
 const dotenv = require("dotenv");
 dotenv.config();
-const env = process.env.NODE_ENV || "development";
 
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const helmet = require("helmet");
-const db = require("./db"); // now sees the variables correctly
-// const socketSetup = require("./socket");
+const db = require("./db");
+const socketSetup = require("./socket");
 
 // Validate critical variables
 const PORT = process.env.PORT || 3000;
@@ -16,19 +15,12 @@ if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
 
 const app = express();
 const server = http.createServer(app);
-// const io = socketSetup(server, db);
-// app.set("io", io);
+const io = socketSetup(server);
 
-// Middlewares
+app.set("io", io);
+
 app.use(helmet());
-app.use(
-  cors({
-    // origin: env === "production" ? ["https://tu-dominio.com"] : "*",
-    origin: "*"
-    // methods: ["GET", "POST", "PUT", "DELETE"],
-    // credentials: true
-  })
-);
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // Rutas
@@ -39,7 +31,6 @@ app.use("/api/recollectionCenters", require("./routes/recollectionCenters"));
 app.use("/api/transactions", require("./routes/transactions"));
 app.use("/api/boxes", require("./routes/boxes"));
 
-// Health check (verifica servidor y DB)
 app.get("/health", async (req, res) => {
   try {
     await db.query("SELECT 1"); // simple query to check DB

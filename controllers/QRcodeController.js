@@ -29,12 +29,7 @@ async function writeNewQRCode(req, res) {
       BETHLEHEM_RECOLLECTION_CENTER_ID
     );
     if (!success) {
-      return res.status(500).json({
-        success: false,
-        data: null,
-        message: "Error creating QR code.",
-        error: error
-      });
+      throw new Error(error?.message || error || "Error creating QR code.");
     }
     res.status(201).json({
       response: true,
@@ -64,9 +59,7 @@ async function isQRCodeValueCorrect(req, res) {
     const { success, data } =
       await getQRCodeByRecollectionCenterCode(accessCode);
     if (!success) {
-      return res.status(500).json({
-        message: "Internal server error."
-      });
+      throw new Error("Internal server error.");
     }
 
     if (data && data.hasExpired) {

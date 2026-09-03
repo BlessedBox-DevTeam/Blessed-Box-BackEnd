@@ -14,9 +14,10 @@ async function getUserDepositedBoxes(req, res) {
       conn
     );
     if (!userBoxesResponse.success) {
-      return res.status(500).json({
-        message: "Internal server. Error on finding user deposited boxes"
-      });
+      throw new Error(
+        userBoxesResponse.message ||
+          "Internal server. Error on finding user deposited boxes"
+      );
     }
     return res.json({
       response: userBoxesResponse.data,
@@ -39,10 +40,10 @@ async function getBoxesCountByRecollectionCenter(req, res) {
       conn
     );
     if (!boxesByRCResponse.success) {
-      return res.status(500).json({
-        message:
+      throw new Error(
+        boxesByRCResponse.message ||
           "Internal server. Error on finding recollection center deposited boxes"
-      });
+      );
     }
     return res.json({
       response: boxesByRCResponse.data,
