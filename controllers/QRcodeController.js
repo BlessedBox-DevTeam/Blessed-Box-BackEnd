@@ -8,7 +8,7 @@ const { uploadFile } = require("../s3Bucket/s3Bucket");
 const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
 
 const ACCESS_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-const ACCESS_CODE_LENGTH = 12;
+const ACCESS_CODE_LENGTH = 6;
 
 function generateAccessCode() {
   const randomBytes = crypto.randomBytes(ACCESS_CODE_LENGTH);
