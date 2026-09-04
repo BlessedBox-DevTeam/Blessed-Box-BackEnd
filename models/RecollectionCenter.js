@@ -28,8 +28,8 @@ const getUserRecollectionCenter = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
       `SELECT 
-      id, 
-      name 
+      rc.id, 
+      rc.name 
     FROM recollection_centers rc
     INNER JOIN user_details ud
       ON rc.id = ud.recollection_center_id
