@@ -16,7 +16,7 @@ const {
   validateEmail,
   formatNamesToTitleCase
 } = require("../helpers/helpers.js");
-const { STAFF_ROLE_TYPE_ID } = require("../helpers/constants.js");
+const { DONOR_ROLE_TYPE_ID } = require("../helpers/constants.js");
 const dynamo = require("../dynamoDB/dynamoDB.js");
 const { sendRegistrationMessage, sendOtpMessage } = require("../sqs/SQS");
 const {
@@ -64,7 +64,7 @@ async function register(req, res) {
 
     const roleResponse = await newUserRole(
       userResponse.data,
-      STAFF_ROLE_TYPE_ID,
+      DONOR_ROLE_TYPE_ID,
       conn
     );
     if (!roleResponse.success) {
