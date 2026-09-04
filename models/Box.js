@@ -29,7 +29,7 @@ const newBox = async (boxes, transactionId, userId, conn) => {
     if (boxes.length > 100) {
       throw new Error("Cannot insert more than 100 boxes at a time.");
     }
-    const placeholders = boxes.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+    const placeholders = boxes.map(() => "(?, ?, ?, ?)").join(", ");
 
     const values = boxes.flatMap((box) => [
       box?.genderId ? box.genderId : null,
