@@ -45,6 +45,7 @@ const newQRCode = async (code, recollectionCenterId) => {
  */
 const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
   try {
+    console.log(recollectionCenterCode);
     const [rows] = await db.query(
       `SELECT 
           ac.code,
