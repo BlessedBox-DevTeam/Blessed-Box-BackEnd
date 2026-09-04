@@ -33,7 +33,7 @@ const getUserRecollectionCenter = async (userId, conn) => {
     FROM recollection_centers rc
     INNER JOIN user_details ud
       ON rc.id = ud.recollection_center_id
-    WHERE ud.user_id = ?
+    WHERE ud.id = ?
       AND rc.is_active = 1`,
       [userId]
     );
