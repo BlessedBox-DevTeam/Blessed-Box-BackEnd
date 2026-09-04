@@ -14,9 +14,7 @@ async function writeNewBackupKey(req, res) {
   const { keyValue } = req.body;
   const newBackupKeyResponse = await newBackupKey(keyValue);
   if (!newBackupKeyResponse.success) {
-    return res.status(500).json({
-      message: "Error creating key."
-    });
+    throw new Error(newBackupKeyResponse.message || "Error creating key.");
   }
   res.status(201).json({
     response: newBackupKeyResponse.data,
@@ -38,9 +36,7 @@ async function isKeyCorrect(req, res) {
   const { keyValue } = req.body;
   const verifyKeyResponse = await verifyKey(keyValue);
   if (!verifyKeyResponse.success) {
-    return res.status(500).json({
-      message: "Internal server error."
-    });
+    throw new Error(verifyKeyResponse.message || "Internal server error.");
   }
   res.status(201).json({
     response: Boolean(verifyKeyResponse.data),

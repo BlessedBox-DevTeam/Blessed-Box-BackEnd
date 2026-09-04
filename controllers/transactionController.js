@@ -13,7 +13,10 @@ const {
   AGE_MAP,
   PENDING_STATUS_ID,
   COMPLETED_STATUS_ID,
-  MANAGER_ROLE_CODE
+  MANAGER_ROLE_CODE,
+  SOCKET_EVENT_NEW_TRANSACTION,
+  SOCKET_EVENT_NEW_BOX_COUNT,
+  SOCKET_EVENT_TRANSACTION_UPDATED
 } = require("../helpers/constants");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
 /**
@@ -43,12 +46,10 @@ async function writeNewTransaction(req, res) {
       conn
     );
     if (!transactionResponse.success) {
-      return res.status(500).json({
-        success: false,
-        message:
-          transactionResponse.message ||
+      throw new Error(
+        transactionResponse.message ||
           "Internal server error (transactionResponse)."
-      });
+      );
     }
     const transactionId = transactionResponse.data;
     // Flatten boxes according to quantity
@@ -68,24 +69,25 @@ async function writeNewTransaction(req, res) {
       conn
     );
     if (!newBoxResponse.success) {
-      return res.status(500).json({ message: "Error creating boxes." });
+      throw new Error(newBoxResponse.message || "Error creating boxes.");
     }
-    conn.commit();
+    await conn.commit();
     const io = req.app.get("io");
-    io.emit("transaction:new", {
-      id: transactionId,
-      boxes: newBoxResponse.data
-    });
+    io.to(`center:${req.user.recollectionCenterId}`).emit(
+      SOCKET_EVENT_NEW_TRANSACTION
+    );
+    io.to(`global`).emit(SOCKET_EVENT_NEW_BOX_COUNT);
+
     res.status(201).json({
       response: { transactionId, boxes: newBoxResponse.data },
       message: "Your transaction has been made."
     });
   } catch (error) {
-    console.error(err);
+    console.error(error);
     await conn.rollback();
     return res
       .status(500)
-      .json({ error: err.message || "Internal server error." });
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }
@@ -152,16 +154,16 @@ async function getTransactionsByRecollectionCenter(req, res) {
       conn: conn
     });
     if (!transactionsResponse.success) {
-      return res.status(500).json({
-        message: "Error fetching transactions."
-      });
+      throw new Error(
+        transactionsResponse.message || "Error fetching transactions."
+      );
     }
     return res.json({ response: transactionsResponse.data });
   } catch (error) {
     console.error(error);
     return res
       .status(500)
-      .json({ error: err.message || "Internal server error." });
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }
@@ -192,9 +194,9 @@ async function updateTransactionStatus(req, res) {
       conn
     );
     if (!editTransactionResponse.success) {
-      return res.status(500).json({
-        message: "Error updating transaction status."
-      });
+      throw new Error(
+        editTransactionResponse.message || "Error updating transaction status."
+      );
     }
     const transactionHistoryResponse = await newTransactionHistory(
       transactionId,
@@ -203,17 +205,18 @@ async function updateTransactionStatus(req, res) {
       conn
     );
     if (!transactionHistoryResponse.success) {
-      return res.status(500).json({
-        message: "Error inserting transaction history."
-      });
+      throw new Error(
+        transactionHistoryResponse.message ||
+          "Error inserting transaction history."
+      );
     }
 
-    conn.commit();
+    await conn.commit();
     const io = req.app.get("io");
-    io.emit("transaction:statusUpdated", {
-      id: transactionId,
-      statusCode: statusCode
-    });
+    io.to(`center:${req.user.recollectionCenterId}`).emit(
+      SOCKET_EVENT_TRANSACTION_UPDATED
+    );
+    io.to(`global`).emit(SOCKET_EVENT_NEW_BOX_COUNT);
 
     return res.json({
       response: editTransactionResponse.data,
@@ -224,7 +227,7 @@ async function updateTransactionStatus(req, res) {
     await conn.rollback();
     return res
       .status(500)
-      .json({ error: err.message || "Internal server error." });
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }
@@ -244,15 +247,16 @@ async function getTransactionDetails(req, res) {
       conn
     );
     if (!transactionDetailsResponse.success) {
-      return res.status(500).json({
-        message: "Error fetching transaction details."
-      });
+      throw new Error(
+        transactionDetailsResponse.message ||
+          "Error fetching transaction details."
+      );
     }
     const boxesResponse = await getBoxesByTransactionId(transactionId, conn);
     if (!boxesResponse.success) {
-      return res.status(500).json({
-        message: "Error fetching boxes for transaction."
-      });
+      throw new Error(
+        boxesResponse.message || "Error fetching boxes for transaction."
+      );
     }
     return res.json({
       response: {
@@ -262,6 +266,9 @@ async function getTransactionDetails(req, res) {
     });
   } catch (error) {
     console.error(error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error." });
   } finally {
     conn.release();
   }
