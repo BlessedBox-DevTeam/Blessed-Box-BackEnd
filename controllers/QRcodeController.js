@@ -13,8 +13,9 @@ const ACCESS_CODE_LENGTH = 12;
 function generateAccessCode() {
   const randomBytes = crypto.randomBytes(ACCESS_CODE_LENGTH);
 
-  return Array.from(randomBytes, (byte) =>
-    ACCESS_CODE_ALPHABET[byte % ACCESS_CODE_ALPHABET.length]
+  return Array.from(
+    randomBytes,
+    (byte) => ACCESS_CODE_ALPHABET[byte % ACCESS_CODE_ALPHABET.length]
   ).join("");
 }
 
@@ -36,6 +37,8 @@ async function writeNewQRCode(req, res) {
     const qrBuffer = await QRCode.toBuffer(RC_Code, opts);
 
     await uploadFile(`RC/QR-Code/${RC_Code}`, qrBuffer, "image/png", "qrCodes");
+
+    console.log(accessCode);
 
     const { success, error } = await newQRCode(
       accessCode,
