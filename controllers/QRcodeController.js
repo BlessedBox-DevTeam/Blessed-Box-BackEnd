@@ -3,8 +3,20 @@ const {
   getQRCodeByRecollectionCenterCode
 } = require("../models/QRCode");
 const QRCode = require("qrcode");
+const crypto = require("crypto");
 const { uploadFile } = require("../s3Bucket/s3Bucket");
 const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
+
+const ACCESS_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const ACCESS_CODE_LENGTH = 12;
+
+function generateAccessCode() {
+  const randomBytes = crypto.randomBytes(ACCESS_CODE_LENGTH);
+
+  return Array.from(randomBytes, (byte) =>
+    ACCESS_CODE_ALPHABET[byte % ACCESS_CODE_ALPHABET.length]
+  ).join("");
+}
 
 /**
  * Generates a new QR code image, hashes the value, and stores it in the database.
@@ -18,7 +30,8 @@ const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
  */
 async function writeNewQRCode(req, res) {
   try {
-    const { accessCode, RC_Code } = req.body;
+    const { RC_Code } = req.body;
+    const accessCode = generateAccessCode();
     const opts = { type: "png", errorCorrectionLevel: "H", width: 300 };
     const qrBuffer = await QRCode.toBuffer(RC_Code, opts);
 
@@ -33,7 +46,8 @@ async function writeNewQRCode(req, res) {
     }
     res.status(201).json({
       response: true,
-      message: "QR code generated successfully."
+      message: "QR code generated successfully.",
+      accessCode
     });
   } catch (error) {
     res.status(500).json({

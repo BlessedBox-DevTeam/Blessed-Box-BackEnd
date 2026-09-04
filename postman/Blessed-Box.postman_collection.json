@@ -1,0 +1,94 @@
+{
+  "info": {
+    "name": "Blessed Box API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api" },
+    { "key": "email", "value": "" },
+    { "key": "password", "value": "" },
+    { "key": "rcCode", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Login successful', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+              "if (body.accessToken) pm.collectionVariables.set('accessToken', body.accessToken);",
+              "if (body.refreshToken) pm.collectionVariables.set('refreshToken', body.refreshToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Refresh tokens",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/refresh"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Refresh successful', () => pm.expect(pm.response.code).to.equal(200));",
+              "if (body.accessToken) pm.collectionVariables.set('accessToken', body.accessToken);",
+              "if (body.refreshToken) pm.collectionVariables.set('refreshToken', body.refreshToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Generate QR code",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"RC_Code\": \"{{rcCode}}\"\n}"
+        },
+        "url": "{{baseUrl}}/qrCodes/newQRCode"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('QR generated successfully', () => pm.expect(pm.response.code).to.equal(201));",
+              "if (body.accessCode) pm.collectionVariables.set('accessCode', body.accessCode);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}
