@@ -287,7 +287,7 @@ const generateTransactionNumber = async (conn) => {
     ORDER BY id DESC
     LIMIT 1`
     );
-    console.log(rows[0]);
+    console.log(rows);
     const id = rows[0].id;
     return returnServiceObject({
       success: true,
