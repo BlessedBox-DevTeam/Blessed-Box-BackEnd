@@ -287,7 +287,7 @@ const generateTransactionNumber = async (conn) => {
     ORDER BY id DESC
     LIMIT 1`
     );
-    const id = rows[0].id ?? 0;
+    const id = rows[0]?.id ?? 0;
     return returnServiceObject({
       success: true,
       data: `BBX-${new Date().getFullYear()}-${String(id).padStart(6, "0")}`
