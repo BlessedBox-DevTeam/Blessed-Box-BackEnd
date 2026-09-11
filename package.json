@@ -24,9 +24,14 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "eslint": "^10.10.0",
+    "jest": "^30.5.1",
     "nodemon": "^3.1.10"
   },
   "scripts": {
-    "dev": "nodemon backend/app.js"
+    "dev": "nodemon backend/app.js",
+    "lint": "eslint .",
+    "test": "jest",
+    "test:integration": "jest --config jest.integration.config.js"
   }
 }
