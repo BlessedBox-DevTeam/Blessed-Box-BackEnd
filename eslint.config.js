@@ -1,8 +1,13 @@
 const js = require("@eslint/js");
+const globals = require("globals");
 
 module.exports = [
   js.configs.recommended,
   {
-    ignores: ["node_modules/**"]
+    languageOptions: {
+      globals: {
+        ...globals.node
+      }
+    }
   }
 ];
