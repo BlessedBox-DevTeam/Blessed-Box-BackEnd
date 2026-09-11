@@ -92,6 +92,33 @@ const findByEmail = async (email, conn) => {
   }
 };
 
+const updateInactiveUserDetails = async (
+  userId,
+  passwordHash,
+  email,
+  name,
+  lastName,
+  conn
+) => {
+  try {
+    const [result] = await conn.query(
+      `UPDATE user_details
+       SET email = ?, first_name = ?, last_name = ?, password_hash = ?
+       WHERE id = ? AND is_active = 0`,
+      [email, name, lastName, passwordHash, userId]
+    );
+    return returnServiceObject({ success: true, data: result });
+  } catch (error) {
+    console.error(error);
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error updating inactive user",
+      error
+    });
+  }
+};
+
 const activateUser = async (userId, conn) => {
   try {
     const [rows] = await conn.query(
@@ -227,6 +254,7 @@ module.exports = {
   getPermissionsByRoleIds,
   updateLastLogin,
   findByEmail,
+  updateInactiveUserDetails,
   activateUser,
   updatePassword
 };
