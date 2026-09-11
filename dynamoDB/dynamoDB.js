@@ -115,7 +115,8 @@ const onUserResend = async (userId, newOtpHash) => {
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
       throw new Error(
-        "You must wait 60 seconds or you have reached the resend limit."
+        "You must wait 60 seconds or you have reached the resend limit.",
+        { cause: error }
       );
     }
 
@@ -142,7 +143,7 @@ const onUserBadAttempt = async (userId) => {
     await docClient.send(command);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
-      throw new Error("Maximum attempts reached.");
+      throw new Error("Maximum attempts reached.", { cause: error });
     }
     throw error;
   }

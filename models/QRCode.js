@@ -1,5 +1,4 @@
 const db = require("../db.js");
-const argon2 = require("argon2");
 const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**

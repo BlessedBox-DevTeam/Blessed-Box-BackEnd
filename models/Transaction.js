@@ -1,4 +1,3 @@
-const db = require("../db.js");
 const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants.js");
 const { returnServiceObject } = require("../helpers/helpers.js");
 
@@ -165,7 +164,7 @@ const getTransactionsByRecollectionCenterId = async ({
 
     return returnServiceObject({
       success: true,
-      data: { transactions: rows, totalCount: totalCount } || null
+      data: { transactions: rows, totalCount: totalCount }
     });
   } catch (error) {
     console.error(error);
