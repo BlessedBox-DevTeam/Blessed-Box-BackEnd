@@ -115,6 +115,7 @@ async function register(req, res) {
       message: "User registered. Check your email to confirm your account."
     });
   } catch (err) {
+    console.error(err);
     if (transactionStarted) {
       await conn.rollback();
     }
