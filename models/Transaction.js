@@ -70,7 +70,7 @@ const getTransactionsByRecollectionCenterId = async ({
   try {
     let whereClauses = [
       `t.recollection_center_id = ${recollectionCenterId}`,
-      "t.is_active = 0"
+      "t.is_active = 1"
     ];
 
     // Filter by selected date
