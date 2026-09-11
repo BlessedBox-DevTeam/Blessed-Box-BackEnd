@@ -23,7 +23,6 @@ const uploadFile = async (fileName, file, contentType, category) => {
         category: category
       }
     };
-    console.log(input);
     const command = new PutObjectCommand(input);
     return await client.send(command);
   } catch (error) {

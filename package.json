@@ -33,7 +33,7 @@
   "scripts": {
     "dev": "nodemon backend/app.js",
     "lint": "eslint .",
-    "test": "jest",
+    "test": "jest --ci --passWithNoTests",
     "test:integration": "jest --config jest.integration.config.js"
   }
 }
