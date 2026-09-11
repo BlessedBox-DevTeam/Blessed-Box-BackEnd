@@ -1,0 +1,46 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches:
+      - development
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # CodeQL
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      # Normal CI
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test

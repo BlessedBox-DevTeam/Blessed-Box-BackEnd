@@ -88,7 +88,7 @@ async function isQRCodeValueCorrect(req, res) {
 
     res.json({
       response: Boolean(data),
-      message: Boolean(data)
+      message: data
         ? ""
         : "The QR code is incorrect. Please check and try again."
     });
