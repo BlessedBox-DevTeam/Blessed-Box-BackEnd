@@ -45,13 +45,13 @@ jobs:
             --instance-ids "${{ steps.find-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --comment "BlessedBox Dev deployment" \
-            --parameters 'commands=[
-              "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd fetch origin development",
-              "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd reset --hard origin/development",
-              "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd log -1 --oneline",
-              "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && npm ci'\''",
-              "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && pm2 restart blessed_box'\''
-            ]' \
+           --parameters 'commands=[
+          "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd fetch origin development",
+          "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd reset --hard origin/development",
+          "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd log -1 --oneline",
+          "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && npm ci'\''",
+          "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && pm2 restart blessed_box'\''"
+           ]' \
             --query "Command.CommandId" \
             --output text)
 
