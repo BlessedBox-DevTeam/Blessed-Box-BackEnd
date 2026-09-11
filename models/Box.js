@@ -16,18 +16,13 @@ const {
  * @param {number|string} userId - The ID of the user creating the boxes.
  * @returns {Promise<Object>} A service object containing the success flag, data, or error.
  *
- * @example
- * const result = await newBox([{ genderId: 1, boxAgeId: 2 }], 101, 5);
+
  */
 const newBox = async (boxes, transactionId, userId, conn) => {
   try {
     // Validate that boxes is a non-empty array
     if (!Array.isArray(boxes) || boxes.length === 0) {
       throw new Error("The 'boxes' parameter must be a non-empty array.");
-    }
-    // Restrict batch insert to a maximum of 100 boxes for performance and DB stability
-    if (boxes.length > 100) {
-      throw new Error("Cannot insert more than 100 boxes at a time.");
     }
     const placeholders = boxes.map(() => "(?, ?, ?, ?)").join(", ");
 

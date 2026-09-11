@@ -19,12 +19,29 @@ const {
   SOCKET_EVENT_TRANSACTION_UPDATED
 } = require("../helpers/constants");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
+
+function getBoxesByGender(gender, ageCounts) {
+  const genderId = GENDER_MAP[gender];
+  if (!genderId || !ageCounts || typeof ageCounts !== "object") {
+    throw new Error(`Invalid gender group: ${gender}.`);
+  }
+
+  return Object.entries(ageCounts).flatMap(([age, quantity]) => {
+    const boxAgeId = AGE_MAP[age];
+    if (!boxAgeId || !Number.isInteger(quantity) || quantity < 0) {
+      throw new Error(`Invalid quantity or age group: ${age}.`);
+    }
+
+    return Array.from({ length: quantity }, () => ({ genderId, boxAgeId }));
+  });
+}
+
 /**
  * Creates a new transaction with associated boxes.
  *
  * @param {Object} req - Express request object.
  * @param {Object} req.body - Request body.
- * @param {Array<Object>} req.body.boxLabels - Array of box label objects containing `genderId`, `boxAgeId`, and `quantity`.
+ * @param {Object} req.body.boxLabels - Box quantities grouped by gender and age.
  * @param {Object} res - Express response object.
  * @returns {Promise<void>} Sends a JSON response indicating success or failure.
  *
@@ -34,7 +51,7 @@ async function writeNewTransaction(req, res) {
   try {
     await conn.beginTransaction();
     const { userId, roles } = req.user;
-    const { boxLabels } = req.body;
+    const { boxLabels = {} } = req.body;
 
     // Create the transaction
     const transactionResponse = await newTransaction(
@@ -52,25 +69,22 @@ async function writeNewTransaction(req, res) {
       );
     }
     const transactionId = transactionResponse.data;
-    // Flatten boxes according to quantity
-    const flattenedBoxLabels = boxLabels.flatMap((label) =>
-      Array(label.quantity)
-        .fill(0)
-        .map(() => ({
-          genderId: label.genderId,
-          boxAgeId: label.boxAgeId
-        }))
-    );
+    const insertedBoxes = [];
 
-    const newBoxResponse = await newBox(
-      flattenedBoxLabels,
-      transactionId,
-      userId,
-      conn
-    );
-    if (!newBoxResponse.success) {
-      throw new Error(newBoxResponse.message || "Error creating boxes.");
+    for (const [gender, ageCounts] of Object.entries(boxLabels)) {
+      const boxes = getBoxesByGender(gender, ageCounts);
+      if (boxes.length === 0) continue;
+
+      const newBoxResponse = await newBox(boxes, transactionId, userId, conn);
+      if (!newBoxResponse.success) {
+        throw new Error(newBoxResponse.message || "Error creating boxes.");
+      }
+      insertedBoxes.push(newBoxResponse.data);
     }
+    if (insertedBoxes.length === 0) {
+      throw new Error("The transaction must contain at least one box.");
+    }
+
     await conn.commit();
     const io = req.app.get("io");
     io.to(`center:${req.user.recollectionCenterId}`).emit(
@@ -79,7 +93,7 @@ async function writeNewTransaction(req, res) {
     io.to(`global`).emit(SOCKET_EVENT_NEW_BOX_COUNT);
 
     res.status(201).json({
-      response: { transactionId, boxes: newBoxResponse.data },
+      response: { transactionId, boxes: insertedBoxes },
       message: "Your transaction has been made."
     });
   } catch (error) {
