@@ -53,7 +53,11 @@ const sendRegistrationMessage = async (payload) =>
 const sendOtpMessage = async (payload) =>
   sendMessageToSqs({ eventType: "OTP_RESEND", ...payload });
 
+const sendTransactionConfirmation = async (payload) =>
+  sendMessageToSqs({ eventType: "TRANSACTION_CONFIRMATION", ...payload });
+
 module.exports = {
   sendRegistrationMessage,
-  sendOtpMessage
+  sendOtpMessage,
+  sendTransactionConfirmation
 };

@@ -31,7 +31,10 @@ const newTransaction = async (
 
     return returnServiceObject({
       success: true,
-      data: result.insertId
+      data: {
+        transactionId: result.insertId,
+        transactionNumber: transactionNumberResponse.data
+      }
     });
   } catch (error) {
     console.error(error);

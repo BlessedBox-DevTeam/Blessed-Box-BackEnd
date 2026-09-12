@@ -19,6 +19,7 @@ const {
   SOCKET_EVENT_TRANSACTION_UPDATED
 } = require("../helpers/constants");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
+const { sendTransactionConfirmation } = require("../sqs/SQS.js");
 
 function getBoxesByGender(gender, ageCounts) {
   const genderId = GENDER_MAP[gender];
@@ -50,7 +51,7 @@ async function writeNewTransaction(req, res) {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
-    const { userId, roles } = req.user;
+    const { userId, roles, email } = req.user;
     const { boxLabels = {} } = req.body;
 
     // Create the transaction
@@ -68,7 +69,7 @@ async function writeNewTransaction(req, res) {
           "Internal server error (transactionResponse)."
       );
     }
-    const transactionId = transactionResponse.data;
+    const { transactionId, transactionNumber } = transactionResponse.data;
     const insertedBoxes = [];
 
     for (const [gender, ageCounts] of Object.entries(boxLabels)) {
@@ -92,8 +93,13 @@ async function writeNewTransaction(req, res) {
     );
     io.to(`global`).emit(SOCKET_EVENT_NEW_BOX_COUNT);
 
+    await sendTransactionConfirmation({
+      email: email,
+      transactionNumber: transactionNumber
+    });
+
     res.status(201).json({
-      response: { transactionId, boxes: insertedBoxes },
+      response: { transactionId: transactionId, boxes: insertedBoxes },
       message: "Your transaction has been made."
     });
   } catch (error) {
