@@ -38,11 +38,16 @@ async function writeNewQRCode(req, res) {
 
     await uploadFile(`RC/QR-Code/${RC_Code}`, qrBuffer, "image/png", "qrCodes");
 
-    console.log(accessCode);
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setUTCHours(4, 0, 0, 0);
+
+    if (expiresAt <= now) expiresAt.setUTCDate(expiresAt.getUTCDate() + 1);
 
     const { success, error } = await newQRCode(
       accessCode,
-      BETHLEHEM_RECOLLECTION_CENTER_ID
+      BETHLEHEM_RECOLLECTION_CENTER_ID,
+      expiresAt
     );
     if (!success) {
       throw new Error(error?.message || error || "Error creating QR code.");
