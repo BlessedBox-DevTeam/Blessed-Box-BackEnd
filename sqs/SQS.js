@@ -15,7 +15,8 @@ const sendMessageToSqs = async ({
   email,
   name,
   lastName,
-  otp
+  otp,
+  transactionNumber
 }) => {
   try {
     const messageBody = JSON.stringify({
@@ -26,6 +27,7 @@ const sendMessageToSqs = async ({
         name,
         lastName,
         otp,
+        transactionNumber,
         createdAt: new Date().toISOString()
       }
     });
