@@ -125,8 +125,8 @@ const getTransactionsByRecollectionCenterId = async ({
     SELECT
       t.id AS transactionId,
       t.created_at AS createdDate,
-      rc.name AS recollectionCenterName,
       ts.code AS statusCode,
+      t.transaction_number AS transactionNumber,
       COUNT(b.id) AS boxCount
     FROM transactions t
     INNER JOIN transaction_status ts
@@ -139,7 +139,7 @@ const getTransactionsByRecollectionCenterId = async ({
       ON b.transaction_id = t.id
       AND b.is_active = 1
     WHERE ${whereClauses.join(" AND ")}
-    GROUP BY t.id, t.created_at, rc.name, ts.code
+    GROUP BY t.id, t.created_at, rc.name, ts.code, t.transaction_number
 
     ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
     ORDER BY t.created_at DESC
@@ -222,14 +222,14 @@ const getTransactionDetailsById = async (transactionId, conn) => {
     const [rows] = await conn.query(
       `SELECT
         t.id AS transactionId,
-        t.transaction_number AS transactionNumber
+        t.transaction_number AS transactionNumber,
         t.created_at AS transactionDate,
         t.status_id AS statusId,
-        ts.code AS statusCode
+        ts.code AS statusCode,
         rc.name AS recollectionCenterName,
         ud.email,
         ud.first_name AS firstName,
-        ud.last_name AS lastName,
+        ud.last_name AS lastName
       FROM transactions t
       INNER JOIN transaction_status ts
         ON ts.id = t.status_id
