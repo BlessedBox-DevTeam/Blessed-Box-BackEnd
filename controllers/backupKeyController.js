@@ -12,22 +12,31 @@ const { verifyKey } = require("../models/BackupKey");
  *
  */
 async function isKeyCorrect(req, res) {
-  const conn = await db.getConnection();
+  const conn = req.dbConnection || (await db.getConnection());
+  const finishAttempt = req.finishAccessCodeAttempt || (async () => {});
+  const abortAttempt = req.abortAccessCodeAttempt || (async () => {});
   try {
     const { keyValue } = req.body;
     const verifyKeyResponse = await verifyKey(keyValue, conn);
     if (!verifyKeyResponse.success) {
       throw new Error(verifyKeyResponse.message || "Internal server error.");
     }
+    const isCorrect = Boolean(verifyKeyResponse.data);
+    await finishAttempt(isCorrect);
     res.status(201).json({
-      response: Boolean(verifyKeyResponse.data),
-      message: "The manual code is correct."
+      response: isCorrect,
+      message: isCorrect
+        ? "The manual code is correct."
+        : "The manual code is incorrect. Please check and try again."
     });
   } catch (error) {
+    await abortAttempt();
     console.error(error);
     res.status(500).json({ error: error.message || "Internal server error." });
   } finally {
-    conn.release();
+    if (!req.dbConnection) {
+      conn.release();
+    }
   }
 }
 
