@@ -13,13 +13,31 @@ const {
   AGE_MAP,
   PENDING_STATUS_ID,
   COMPLETED_STATUS_ID,
+  DECLINED_STATUS_ID,
   MANAGER_ROLE_CODE,
   SOCKET_EVENT_NEW_TRANSACTION,
   SOCKET_EVENT_NEW_BOX_COUNT,
   SOCKET_EVENT_TRANSACTION_UPDATED
 } = require("../helpers/constants");
-const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
 const { sendTransactionConfirmation } = require("../sqs/SQS.js");
+const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
+
+const TRANSACTION_STATUS_FILTERS = {
+  pendiente: PENDING_STATUS_ID,
+  pending: PENDING_STATUS_ID,
+  completado: COMPLETED_STATUS_ID,
+  completed: COMPLETED_STATUS_ID,
+  decline: DECLINED_STATUS_ID,
+  declined: DECLINED_STATUS_ID
+};
+
+const formatTransactionNumber = (transactionNumber) => {
+  const normalizedNumber = String(transactionNumber ?? "").trim();
+
+  return /^\d+$/.test(normalizedNumber)
+    ? normalizedNumber.padStart(6, "0")
+    : normalizedNumber.toUpperCase();
+};
 
 function getBoxesByGender(gender, ageCounts) {
   const genderId = GENDER_MAP[gender];
@@ -126,51 +144,35 @@ async function writeNewTransaction(req, res) {
 async function getTransactionsByRecollectionCenter(req, res) {
   const conn = await db.getConnection();
   try {
-    let dateTimeFormat = null;
-    const { page: pageParam, selectedDay, filters = {} } = req.query;
+    const {
+      page: pageParam,
+      selectedDay,
+      transactionNumber = "",
+      filters = {}
+    } = req.query;
     const recollectionCenterId = BETHLEHEM_RECOLLECTION_CENTER_ID;
     const page = Number(pageParam) || 1;
-    if (selectedDay) {
-      dateTimeFormat = toMySQLDateTimeUTC(selectedDay);
-    }
-    const {
-      ageFilters = [],
-      genderValues = [],
-      filterMode = null,
-      numberOfBoxes = null,
-      maxNumberOfBoxes = null
-    } = JSON.parse(filters);
+    const selectedDate = selectedDay
+      ? toMySQLDateTimeUTC(selectedDay)
+      : undefined;
+    const parsedFilters =
+      typeof filters === "string" ? JSON.parse(filters) : filters;
+    const statusCodes = parsedFilters.statusCodes ?? [];
 
     const normalizeArray = (value) =>
       Array.isArray(value) ? value : value ? [value] : [];
 
-    const ageFiltersList = normalizeArray(ageFilters);
-    const genderValuesList = normalizeArray(genderValues);
-
-    const ageFiltersIds = ageFiltersList.flatMap((label) =>
-      Array.isArray(AGE_MAP[label])
-        ? AGE_MAP[label]
-        : AGE_MAP[label]
-          ? [AGE_MAP[label]]
-          : []
-    );
-
-    const genderValuesIds = genderValuesList.flatMap((label) =>
-      Array.isArray(GENDER_MAP[label])
-        ? GENDER_MAP[label]
-        : GENDER_MAP[label]
-          ? [GENDER_MAP[label]]
-          : []
-    );
+    const statusIds = normalizeArray(statusCodes).flatMap((statusCode) => {
+      const statusId =
+        TRANSACTION_STATUS_FILTERS[String(statusCode).toLowerCase()];
+      return statusId ? [statusId] : [];
+    });
     const transactionsResponse = await getTransactionsByRecollectionCenterId({
       recollectionCenterId: recollectionCenterId,
       page: page,
-      selectedDate: dateTimeFormat,
-      filterMode: filterMode,
-      numberOfBoxes: numberOfBoxes,
-      maxNumberOfBoxes: maxNumberOfBoxes,
-      ageFiltersIds: ageFiltersIds,
-      genderValuesIds: genderValuesIds,
+      selectedDate: selectedDate,
+      transactionNumber: formatTransactionNumber(transactionNumber),
+      statusIds: [...new Set(statusIds)],
       conn: conn
     });
     if (!transactionsResponse.success) {

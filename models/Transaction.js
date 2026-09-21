@@ -60,65 +60,37 @@ const getTransactionsByRecollectionCenterId = async ({
   recollectionCenterId = BETHLEHEM_RECOLLECTION_CENTER_ID,
   page = 1,
   selectedDate,
-  filterMode,
-  numberOfBoxes,
-  maxNumberOfBoxes,
-  ageFiltersIds = [],
-  genderValuesIds = [],
+  transactionNumber = "",
+  statusIds = [],
   conn
 } = {}) => {
   const pageSize = 10;
   const offset = (page - 1) * pageSize;
 
   try {
-    let whereClauses = [
+    const whereClauses = [
       `t.recollection_center_id = ${recollectionCenterId}`,
-      "t.is_active = 1"
+      "t.is_active = 1",
+      "t.created_at >= MAKEDATE(YEAR(CURDATE()), 1)",
+      "t.created_at < MAKEDATE(YEAR(CURDATE()) + 1, 1)"
     ];
 
-    // Filter by selected date
+    const queryParams = [];
+    if (statusIds.length) {
+      whereClauses.push(
+        `t.status_id IN (${statusIds.map(() => "?").join(", ")})`
+      );
+      queryParams.push(...statusIds);
+    }
     if (selectedDate) {
       whereClauses.push(
-        `t.created_at BETWEEN '${selectedDate}' AND '${selectedDate.replace(
-          "00:00:00",
-          "23:59:59"
-        )}'`
+        "t.created_at >= ? AND t.created_at < DATE_ADD(?, INTERVAL 1 DAY)"
       );
+      queryParams.push(selectedDate, selectedDate);
     }
-    let havingClauses = [];
-
-    // STRICT Gender
-    if (genderValuesIds.length) {
-      havingClauses.push(`
-    SUM(
-      CASE WHEN b.gender_id NOT IN (${genderValuesIds.join(",")})
-           OR b.gender_id IS NULL
-      THEN 1 ELSE 0 END
-    ) = 0
-  `);
-    }
-    // STRICT Age
-    if (ageFiltersIds.length) {
-      havingClauses.push(`
-    SUM(
-      CASE WHEN b.age_id NOT IN (${ageFiltersIds.join(",")})
-           OR b.age_id IS NULL
-      THEN 1 ELSE 0 END
-    ) = 0
-  `);
-    }
-
-    // Box count conditions
-    if (filterMode === "exact") {
-      havingClauses.push(`COUNT(b.id) = ${numberOfBoxes}`);
-    } else if (filterMode === "minimum") {
-      havingClauses.push(`COUNT(b.id) >= ${numberOfBoxes}`);
-    } else if (filterMode === "maximum") {
-      havingClauses.push(`COUNT(b.id) <= ${numberOfBoxes}`);
-    } else if (filterMode === "range") {
-      havingClauses.push(`
-    COUNT(b.id) BETWEEN ${numberOfBoxes} AND ${maxNumberOfBoxes}
-  `);
+    if (transactionNumber) {
+      whereClauses.push("UPPER(t.transaction_number) LIKE ?");
+      queryParams.push(`%${transactionNumber}%`);
     }
 
     const query = `
@@ -141,12 +113,11 @@ const getTransactionsByRecollectionCenterId = async ({
     WHERE ${whereClauses.join(" AND ")}
     GROUP BY t.id, t.created_at, rc.name, ts.code, t.transaction_number
 
-    ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
     ORDER BY t.created_at DESC
-    LIMIT ${pageSize} OFFSET ${offset};
+    LIMIT ? OFFSET ?;
   `;
 
-    const [rows] = await conn.query(query);
+    const [rows] = await conn.query(query, [...queryParams, pageSize, offset]);
 
     // Total count for pagination (without box filter)
     const [[{ totalCount }]] = await conn.query(
@@ -160,9 +131,9 @@ const getTransactionsByRecollectionCenterId = async ({
             AND b.is_active = 1
           WHERE ${whereClauses.join(" AND ")}
           GROUP BY t.id
-          ${havingClauses.length ? "HAVING " + havingClauses.join(" AND ") : ""}
         ) AS filteredTransactions
-      `
+      `,
+      queryParams
     );
 
     return returnServiceObject({
