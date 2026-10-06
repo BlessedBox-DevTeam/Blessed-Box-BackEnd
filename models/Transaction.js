@@ -168,7 +168,7 @@ const editTransactionStatusById = async (id, statusId, userId, conn) => {
       `
       UPDATE transactions
       SET status_id = ?, modified_by = ?
-      WHERE transactionId = ?
+      WHERE id = ?
       `,
       [statusId, userId, id]
     );
