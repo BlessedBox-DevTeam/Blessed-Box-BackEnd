@@ -17,7 +17,8 @@ const {
   MANAGER_ROLE_CODE,
   SOCKET_EVENT_NEW_TRANSACTION,
   SOCKET_EVENT_NEW_BOX_COUNT,
-  SOCKET_EVENT_TRANSACTION_UPDATED
+  SOCKET_EVENT_TRANSACTION_UPDATED,
+  UNLABELED_GENDER_ID
 } = require("../helpers/constants");
 const { sendTransactionConfirmation } = require("../sqs/SQS.js");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
