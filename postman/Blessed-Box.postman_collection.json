@@ -100,7 +100,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"boxLabels\": [\n    {\n      \"genderId\": 1,\n      \"boxAgeId\": 1,\n      \"quantity\": 1\n    }\n  ]\n}"
+          "raw": "{\n  \"boxLabels\": {\n    \"Male\": {\n      \"2-4\": 1\n    },\n    \"Unlabeled\": {\n      \"quantity\": 2\n    }\n  }\n}"
         },
         "url": "{{baseUrl}}/transactions/newTransaction"
       },
