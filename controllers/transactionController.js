@@ -17,7 +17,8 @@ const {
   MANAGER_ROLE_CODE,
   SOCKET_EVENT_NEW_TRANSACTION,
   SOCKET_EVENT_NEW_BOX_COUNT,
-  SOCKET_EVENT_TRANSACTION_UPDATED
+  SOCKET_EVENT_TRANSACTION_UPDATED,
+  UNLABELED_GENDER_ID
 } = require("../helpers/constants");
 const { sendTransactionConfirmation } = require("../sqs/SQS.js");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
@@ -41,8 +42,25 @@ const formatTransactionNumber = (transactionNumber) => {
 
 function getBoxesByGender(gender, ageCounts) {
   const genderId = GENDER_MAP[gender];
-  if (!genderId || !ageCounts || typeof ageCounts !== "object") {
+  if (
+    !genderId ||
+    !ageCounts ||
+    typeof ageCounts !== "object" ||
+    Array.isArray(ageCounts)
+  ) {
     throw new Error(`Invalid gender group: ${gender}.`);
+  }
+
+  if (genderId === UNLABELED_GENDER_ID) {
+    const { quantity } = ageCounts;
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      throw new Error(`Invalid quantity for gender group: ${gender}.`);
+    }
+
+    return Array.from({ length: quantity }, () => ({
+      genderId,
+      boxAgeId: null
+    }));
   }
 
   return Object.entries(ageCounts).flatMap(([age, quantity]) => {
@@ -61,6 +79,7 @@ function getBoxesByGender(gender, ageCounts) {
  * @param {Object} req - Express request object.
  * @param {Object} req.body - Request body.
  * @param {Object} req.body.boxLabels - Box quantities grouped by gender and age.
+ *   Unlabeled boxes use a quantity property and have no age.
  * @param {Object} res - Express response object.
  * @returns {Promise<void>} Sends a JSON response indicating success or failure.
  *
