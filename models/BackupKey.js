@@ -13,7 +13,7 @@ const verifyKey = async (keyValue, conn) => {
   try {
     const [rows] = await conn.query(
       `SELECT code
-       FROM access_code
+       FROM access_codes
        WHERE expires_at > UTC_TIMESTAMP()
        AND code = ?`,
       [keyValue]
