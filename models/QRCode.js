@@ -74,7 +74,40 @@ const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
   }
 };
 
+const getManualAccessCodeByRecollectionCenterId = async (
+  recollectionCenterId
+) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT ac.code AS accessCode
+       FROM access_codes ac
+       INNER JOIN recollection_centers rc
+         ON rc.id = ac.recollection_center_id
+         AND rc.is_active = 1
+       WHERE rc.id = ?
+         AND ac.expires_at > UTC_TIMESTAMP()
+       ORDER BY ac.created_at DESC
+       LIMIT 1`,
+      [recollectionCenterId]
+    );
+
+    return returnServiceObject({
+      success: true,
+      data: rows[0] || null
+    });
+  } catch (error) {
+    console.error(error);
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error retrieving manual access code by recollection center ID",
+      error
+    });
+  }
+};
+
 module.exports = {
   newQRCode,
-  getQRCodeByRecollectionCenterCode
+  getQRCodeByRecollectionCenterCode,
+  getManualAccessCodeByRecollectionCenterId
 };

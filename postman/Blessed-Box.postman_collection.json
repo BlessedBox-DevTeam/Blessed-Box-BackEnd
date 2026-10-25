@@ -91,6 +91,36 @@
       ]
     },
     {
+      "name": "Get manual RC access code",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/qrCodes/manualAccessCode"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Access code retrieved successfully', () => pm.expect(pm.response.code).to.equal(200));",
+              "if (body.accessCode) pm.collectionVariables.set('accessCode', body.accessCode);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
       "name": "New transaction",
       "request": {
         "method": "POST",
