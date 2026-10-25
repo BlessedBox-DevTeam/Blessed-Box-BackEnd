@@ -19,6 +19,25 @@ const authorize = (requiredPermissions) => {
   };
 };
 
+const authorizeRole = (requiredRoleCode) => {
+  return (req, res, next) => {
+    const userRoles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+    const hasRole = userRoles.some(
+      (role) =>
+        (typeof role === "string" ? role : role?.code) === requiredRoleCode
+    );
+
+    if (!hasRole) {
+      return res.status(403).json({
+        message: "You do not have permission to perform this action."
+      });
+    }
+
+    next();
+  };
+};
+
 module.exports = {
-  authorize
+  authorize,
+  authorizeRole
 };

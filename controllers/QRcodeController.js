@@ -1,6 +1,7 @@
 const {
   newQRCode,
-  getQRCodeByRecollectionCenterCode
+  getQRCodeByRecollectionCenterCode,
+  getManualAccessCodeByRecollectionCenterId
 } = require("../models/QRCode");
 const QRCode = require("qrcode");
 const crypto = require("crypto");
@@ -105,7 +106,37 @@ async function isQRCodeValueCorrect(req, res) {
   }
 }
 
+async function getManualAccessCode(_req, res) {
+  try {
+    const { success, data, message } =
+      await getManualAccessCodeByRecollectionCenterId(
+        BETHLEHEM_RECOLLECTION_CENTER_ID
+      );
+    if (!success) {
+      throw new Error(message || "Internal server error.");
+    }
+
+    if (!data) {
+      return res.status(404).json({
+        response: false,
+        message: "No active access code found for the recollection center."
+      });
+    }
+
+    return res.status(200).json({
+      response: true,
+      accessCode: data.accessCode
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal server error.",
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   writeNewQRCode,
-  isQRCodeValueCorrect
+  isQRCodeValueCorrect,
+  getManualAccessCode
 };

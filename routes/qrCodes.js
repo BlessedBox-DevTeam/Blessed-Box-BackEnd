@@ -2,8 +2,9 @@ const express = require("express");
 const router = express.Router();
 const qrCodeController = require("../controllers/QRcodeController");
 const { authenticate } = require("../middleware/authenticate");
-const { authorize } = require("../middleware/authorize");
+const { authorize, authorizeRole } = require("../middleware/authorize");
 const permissions = require("../helpers/constants");
+const { MANAGER_ROLE_CODE } = permissions;
 
 router.post(
   "/newQRCode",
@@ -16,6 +17,12 @@ router.post(
   authenticate,
   authorize([permissions.WRITE_TRANSACTION_PERMISSION]),
   qrCodeController.isQRCodeValueCorrect
+);
+router.get(
+  "/manualAccessCode",
+  authenticate,
+  authorizeRole(MANAGER_ROLE_CODE),
+  qrCodeController.getManualAccessCode
 );
 
 module.exports = router;
