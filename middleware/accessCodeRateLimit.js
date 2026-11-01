@@ -78,7 +78,7 @@ const rateLimitAccessCode = async (req, res, next) => {
              VALUES (?, 1)
              ON DUPLICATE KEY UPDATE
                failed_attempts = failed_attempts + 1,
-               updated_at = UTC_TIMESTAMP()`,
+               modified_at = UTC_TIMESTAMP()`,
             [userId]
           );
           const [updatedRows] = await conn.query(
