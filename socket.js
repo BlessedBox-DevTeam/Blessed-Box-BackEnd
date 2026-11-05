@@ -13,7 +13,7 @@ module.exports = function (server) {
       socket.user = user;
       next();
     } catch (err) {
-      next(new Error("Invalid token"));
+      next(new Error("Invalid token", { cause: err }));
     }
   });
 

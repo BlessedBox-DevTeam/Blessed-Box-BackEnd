@@ -8,6 +8,7 @@ const db = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  timezone: "Z",
   typeCast: function (field, next) {
     // Si el tipo es BIT y solo mide 1 bit de longitud
     if (field.type === "BIT" && field.length === 1) {

@@ -1,0 +1,118 @@
+name: Deploy BlessedBox Main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: blessed-box-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Release to production Auto Scaling Group
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      AWS_REGION: us-east-2
+      PROD_ASG_NAME: prod-api
+      RELEASE_PARAMETER: /blessedbox/prod/app/RELEASE_SHA
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_PROD_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish release SHA and refresh production instances
+        run: |
+          set -euo pipefail
+
+          RELEASE_SHA="${{ github.sha }}"
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid release SHA: $RELEASE_SHA"
+            exit 1
+          fi
+
+          aws ssm put-parameter \
+            --name "$RELEASE_PARAMETER" \
+            --type String \
+            --value "$RELEASE_SHA" \
+            --overwrite
+          echo "Published release $RELEASE_SHA to $RELEASE_PARAMETER"
+
+          wait_for_refresh() {
+            local refresh_id="$1"
+            local started_at
+            local refresh
+            local status
+            local reason
+            started_at=$(date +%s)
+
+            while true; do
+              refresh=$(aws autoscaling describe-instance-refreshes \
+                --auto-scaling-group-name "$PROD_ASG_NAME" \
+                --instance-refresh-ids "$refresh_id" \
+                --output json)
+              status=$(jq -r '.InstanceRefreshes[0].Status // empty' <<< "$refresh")
+              reason=$(jq -r '.InstanceRefreshes[0].StatusReason // empty' <<< "$refresh")
+              echo "Instance refresh $refresh_id status: $status${reason:+ - $reason}"
+
+              case "$status" in
+                Successful)
+                  return 0
+                  ;;
+                Pending|InProgress|Baking|Cancelling|RollbackInProgress|RollbackPending)
+                  if [ "$(( $(date +%s) - started_at ))" -ge 9000 ]; then
+                    echo "Timed out waiting for instance refresh $refresh_id."
+                    return 1
+                  fi
+                  sleep 30
+                  ;;
+                *)
+                  echo "Instance refresh $refresh_id ended unsuccessfully: $status${reason:+ - $reason}"
+                  return 1
+                  ;;
+              esac
+            done
+          }
+
+          PREVIOUS_REFRESH=$(aws autoscaling describe-instance-refreshes \
+            --auto-scaling-group-name "$PROD_ASG_NAME" \
+            --max-records 1 \
+            --output json)
+          PREVIOUS_REFRESH_ID=$(jq -r '.InstanceRefreshes[0].InstanceRefreshId // empty' <<< "$PREVIOUS_REFRESH")
+          PREVIOUS_STATUS=$(jq -r '.InstanceRefreshes[0].Status // empty' <<< "$PREVIOUS_REFRESH")
+
+          case "$PREVIOUS_STATUS" in
+            Pending|InProgress|Baking|Cancelling|RollbackInProgress|RollbackPending)
+              echo "Waiting for existing instance refresh $PREVIOUS_REFRESH_ID before starting this release."
+              wait_for_refresh "$PREVIOUS_REFRESH_ID"
+              ;;
+            ""|Successful|Cancelled|Failed|RollbackFailed|RollbackSuccessful)
+              echo "No active instance refresh to wait for (latest status: ${PREVIOUS_STATUS:-none})."
+              ;;
+            *)
+              echo "Unrecognized instance refresh status: $PREVIOUS_STATUS"
+              exit 1
+              ;;
+          esac
+
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$PROD_ASG_NAME" \
+            --query "InstanceRefreshId" \
+            --output text)
+          if [ -z "$REFRESH_ID" ] || [ "$REFRESH_ID" = "None" ]; then
+            echo "AWS did not return an instance refresh ID."
+            exit 1
+          fi
+
+          echo "Started production instance refresh $REFRESH_ID for release $RELEASE_SHA."
+          wait_for_refresh "$REFRESH_ID"
+          echo "Production release $RELEASE_SHA completed successfully."

@@ -8,7 +8,7 @@ const {
 async function getUserDepositedBoxes(req, res) {
   const conn = await db.getConnection();
   try {
-    const { userId } = req?.user;
+    const { userId } = req.user;
     const userBoxesResponse = await getDepositedBoxesCountByUserId(
       userId,
       conn

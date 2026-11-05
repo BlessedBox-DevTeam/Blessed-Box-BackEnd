@@ -2,6 +2,7 @@ const {
   newUserDetails,
   findByCredentials,
   findByEmail,
+  updateInactiveUserDetails,
   activateUser,
   getUserRolesByUserId,
   newUserRole,
@@ -31,17 +32,19 @@ if (!JWT_SECRET) {
 
 async function register(req, res) {
   const conn = await db.getConnection();
+  let transactionStarted = false;
   try {
-    await conn.beginTransaction();
-
     const { password, email, name, lastName } = req.body;
     const { valid, normalizedEmail } = validateEmail(email);
     if (!valid) {
       throw new Error("Email format incorrect");
     }
 
-    const existing = await findByCredentials(normalizedEmail, conn);
-    if (existing.success && existing.data) {
+    const existing = await findByEmail(normalizedEmail, conn);
+    if (!existing.success) {
+      throw new Error(existing.message || "Error finding user.");
+    }
+    if (existing.data && Number(existing.data.isActive) === 1) {
       return res.status(200).json({
         success: false,
         message: "If an account exists, you will receive instructions."
@@ -50,38 +53,56 @@ async function register(req, res) {
 
     const passwordHash = await argon2.hash(password);
     const namesObject = formatNamesToTitleCase({ name, lastName });
+    await conn.beginTransaction();
+    transactionStarted = true;
 
-    const userResponse = await newUserDetails(
-      passwordHash,
-      normalizedEmail,
-      namesObject.name,
-      namesObject.lastName,
-      conn
-    );
-    if (!userResponse.success) {
-      throw new Error(userResponse.error);
-    }
+    let userId;
+    if (existing.data) {
+      const updateResponse = await updateInactiveUserDetails(
+        existing.data.userId,
+        passwordHash,
+        normalizedEmail,
+        namesObject.name,
+        namesObject.lastName,
+        conn
+      );
+      if (!updateResponse.success) {
+        throw new Error(updateResponse.message || "Error updating user.");
+      }
+      userId = existing.data.userId;
+    } else {
+      const userResponse = await newUserDetails(
+        passwordHash,
+        normalizedEmail,
+        namesObject.name,
+        namesObject.lastName,
+        conn
+      );
+      if (!userResponse.success) {
+        throw new Error(userResponse.error);
+      }
+      userId = userResponse.data;
 
-    const roleResponse = await newUserRole(
-      userResponse.data,
-      DONOR_ROLE_TYPE_ID,
-      conn
-    );
-    if (!roleResponse.success) {
-      throw new Error(roleResponse.error);
+      const roleResponse = await newUserRole(userId, DONOR_ROLE_TYPE_ID, conn);
+      if (!roleResponse.success) {
+        throw new Error(roleResponse.error);
+      }
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = await argon2.hash(otp);
+    const existingOtp = existing.data ? await dynamo.getUserOtp(userId) : null;
+    const otpIsActive =
+      existingOtp?.Item && existingOtp.Item.ttl > Math.floor(Date.now() / 1000);
 
-    await dynamo.onUserRegistration(
-      userResponse.data,
-      normalizedEmail,
-      otpHash
-    );
+    if (otpIsActive) {
+      await dynamo.onUserResend(userId, otpHash);
+    } else {
+      await dynamo.onUserRegistration(userId, normalizedEmail, otpHash);
+    }
 
     await sendRegistrationMessage({
-      userId: userResponse.data,
+      userId,
       email: normalizedEmail,
       name: namesObject.name,
       lastName: namesObject.lastName,
@@ -94,7 +115,10 @@ async function register(req, res) {
       message: "User registered. Check your email to confirm your account."
     });
   } catch (err) {
-    await conn.rollback();
+    console.error(err);
+    if (transactionStarted) {
+      await conn.rollback();
+    }
     return res
       .status(500)
       .json({ success: false, error: err.message || "Internal server error" });
@@ -135,7 +159,9 @@ async function login(req, res) {
       );
     }
     const roleIds = rolesResponse.data.map((role) => role.roleId);
-    const roles = rolesResponse.data.map(({ roleId, ...role }) => role);
+    const roles = rolesResponse.data.map(
+      ({ roleId: _roleId, ...role }) => role
+    );
 
     const permissionsResponse = await getPermissionsByRoleIds(roleIds, conn);
     if (!permissionsResponse.success) {
@@ -355,7 +381,9 @@ async function refreshTokens(req, res) {
       );
     }
     const roleIds = rolesResponse.data.map((role) => role.roleId);
-    const roles = rolesResponse.data.map(({ roleId, ...role }) => role);
+    const roles = rolesResponse.data.map(
+      ({ roleId: _roleId, ...role }) => role
+    );
 
     const permissionsResponse = await getPermissionsByRoleIds(roleIds, conn);
     if (!permissionsResponse.success) {
@@ -470,17 +498,18 @@ async function forgotPassword(req, res) {
     );
 
     await sendOtpMessage({
-      userId: userId,
+      userId: userResponse.data.userId,
       email: normalizedEmail,
       name: userResponse.data.firstName,
       lastName: userResponse.data.lastName,
-      otp: newOtp
+      otp: otp
     });
     return res.status(200).json({
       success: true,
       message: "OTP sent. Please verify your email."
     });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({
       success: false,
       message: "Internal server error."
@@ -557,6 +586,7 @@ async function changePassword(req, res) {
       message: "Password changed successfully."
     });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({
       success: false,
       message: "Internal server error."

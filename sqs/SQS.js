@@ -15,7 +15,8 @@ const sendMessageToSqs = async ({
   email,
   name,
   lastName,
-  otp
+  otp,
+  transactionNumber
 }) => {
   try {
     const messageBody = JSON.stringify({
@@ -26,6 +27,7 @@ const sendMessageToSqs = async ({
         name,
         lastName,
         otp,
+        transactionNumber,
         createdAt: new Date().toISOString()
       }
     });
@@ -53,7 +55,11 @@ const sendRegistrationMessage = async (payload) =>
 const sendOtpMessage = async (payload) =>
   sendMessageToSqs({ eventType: "OTP_RESEND", ...payload });
 
+const sendTransactionConfirmation = async (payload) =>
+  sendMessageToSqs({ eventType: "TRANSACTION_CONFIRMATION", ...payload });
+
 module.exports = {
   sendRegistrationMessage,
-  sendOtpMessage
+  sendOtpMessage,
+  sendTransactionConfirmation
 };

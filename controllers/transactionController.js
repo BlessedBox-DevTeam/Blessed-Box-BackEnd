@@ -13,18 +13,73 @@ const {
   AGE_MAP,
   PENDING_STATUS_ID,
   COMPLETED_STATUS_ID,
+  DECLINED_STATUS_ID,
   MANAGER_ROLE_CODE,
   SOCKET_EVENT_NEW_TRANSACTION,
   SOCKET_EVENT_NEW_BOX_COUNT,
-  SOCKET_EVENT_TRANSACTION_UPDATED
+  SOCKET_EVENT_TRANSACTION_UPDATED,
+  UNLABELED_GENDER_ID
 } = require("../helpers/constants");
+const { sendTransactionConfirmation } = require("../sqs/SQS.js");
 const { toMySQLDateTimeUTC } = require("../helpers/helpers.js");
+
+const TRANSACTION_STATUS_FILTERS = {
+  pendiente: PENDING_STATUS_ID,
+  pending: PENDING_STATUS_ID,
+  completado: COMPLETED_STATUS_ID,
+  completed: COMPLETED_STATUS_ID,
+  decline: DECLINED_STATUS_ID,
+  declined: DECLINED_STATUS_ID
+};
+
+const formatTransactionNumber = (transactionNumber) => {
+  const normalizedNumber = String(transactionNumber ?? "").trim();
+
+  return /^\d+$/.test(normalizedNumber)
+    ? normalizedNumber.padStart(6, "0")
+    : normalizedNumber.toUpperCase();
+};
+
+function getBoxesByGender(gender, ageCounts) {
+  const genderId = GENDER_MAP[gender];
+  if (
+    !genderId ||
+    !ageCounts ||
+    typeof ageCounts !== "object" ||
+    Array.isArray(ageCounts)
+  ) {
+    throw new Error(`Invalid gender group: ${gender}.`);
+  }
+
+  if (genderId === UNLABELED_GENDER_ID) {
+    const { quantity } = ageCounts;
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      throw new Error(`Invalid quantity for gender group: ${gender}.`);
+    }
+
+    return Array.from({ length: quantity }, () => ({
+      genderId,
+      boxAgeId: null
+    }));
+  }
+
+  return Object.entries(ageCounts).flatMap(([age, quantity]) => {
+    const boxAgeId = AGE_MAP[age];
+    if (!boxAgeId || !Number.isInteger(quantity) || quantity < 0) {
+      throw new Error(`Invalid quantity or age group: ${age}.`);
+    }
+
+    return Array.from({ length: quantity }, () => ({ genderId, boxAgeId }));
+  });
+}
+
 /**
  * Creates a new transaction with associated boxes.
  *
  * @param {Object} req - Express request object.
  * @param {Object} req.body - Request body.
- * @param {Array<Object>} req.body.boxLabels - Array of box label objects containing `genderId`, `boxAgeId`, and `quantity`.
+ * @param {Object} req.body.boxLabels - Box quantities grouped by gender and age.
+ *   Unlabeled boxes use a quantity property and have no age.
  * @param {Object} res - Express response object.
  * @returns {Promise<void>} Sends a JSON response indicating success or failure.
  *
@@ -33,8 +88,8 @@ async function writeNewTransaction(req, res) {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
-    const { userId, roles } = req.user;
-    const { boxLabels } = req.body;
+    const { userId, roles, email } = req.user;
+    const { boxLabels = {} } = req.body;
 
     // Create the transaction
     const transactionResponse = await newTransaction(
@@ -51,26 +106,23 @@ async function writeNewTransaction(req, res) {
           "Internal server error (transactionResponse)."
       );
     }
-    const transactionId = transactionResponse.data;
-    // Flatten boxes according to quantity
-    const flattenedBoxLabels = boxLabels.flatMap((label) =>
-      Array(label.quantity)
-        .fill(0)
-        .map(() => ({
-          genderId: label.genderId,
-          boxAgeId: label.boxAgeId
-        }))
-    );
+    const { transactionId, transactionNumber } = transactionResponse.data;
+    const insertedBoxes = [];
 
-    const newBoxResponse = await newBox(
-      flattenedBoxLabels,
-      transactionId,
-      userId,
-      conn
-    );
-    if (!newBoxResponse.success) {
-      throw new Error(newBoxResponse.message || "Error creating boxes.");
+    for (const [gender, ageCounts] of Object.entries(boxLabels)) {
+      const boxes = getBoxesByGender(gender, ageCounts);
+      if (boxes.length === 0) continue;
+
+      const newBoxResponse = await newBox(boxes, transactionId, userId, conn);
+      if (!newBoxResponse.success) {
+        throw new Error(newBoxResponse.message || "Error creating boxes.");
+      }
+      insertedBoxes.push(newBoxResponse.data);
     }
+    if (insertedBoxes.length === 0) {
+      throw new Error("The transaction must contain at least one box.");
+    }
+
     await conn.commit();
     const io = req.app.get("io");
     io.to(`center:${req.user.recollectionCenterId}`).emit(
@@ -78,8 +130,13 @@ async function writeNewTransaction(req, res) {
     );
     io.to(`global`).emit(SOCKET_EVENT_NEW_BOX_COUNT);
 
+    await sendTransactionConfirmation({
+      email: email,
+      transactionNumber: transactionNumber
+    });
+
     res.status(201).json({
-      response: { transactionId, boxes: newBoxResponse.data },
+      response: { transactionId: transactionId, boxes: insertedBoxes },
       message: "Your transaction has been made."
     });
   } catch (error) {
@@ -106,51 +163,35 @@ async function writeNewTransaction(req, res) {
 async function getTransactionsByRecollectionCenter(req, res) {
   const conn = await db.getConnection();
   try {
-    let dateTimeFormat = null;
-    const { page: pageParam, selectedDay, filters = {} } = req.query;
+    const {
+      page: pageParam,
+      selectedDay,
+      transactionNumber = "",
+      filters = {}
+    } = req.query;
     const recollectionCenterId = BETHLEHEM_RECOLLECTION_CENTER_ID;
     const page = Number(pageParam) || 1;
-    if (selectedDay) {
-      dateTimeFormat = toMySQLDateTimeUTC(selectedDay);
-    }
-    const {
-      ageFilters = [],
-      genderValues = [],
-      filterMode = null,
-      numberOfBoxes = null,
-      maxNumberOfBoxes = null
-    } = JSON.parse(filters);
+    const selectedDate = selectedDay
+      ? toMySQLDateTimeUTC(selectedDay)
+      : undefined;
+    const parsedFilters =
+      typeof filters === "string" ? JSON.parse(filters) : filters;
+    const statusCodes = parsedFilters.statusCodes ?? [];
 
     const normalizeArray = (value) =>
       Array.isArray(value) ? value : value ? [value] : [];
 
-    const ageFiltersList = normalizeArray(ageFilters);
-    const genderValuesList = normalizeArray(genderValues);
-
-    const ageFiltersIds = ageFiltersList.flatMap((label) =>
-      Array.isArray(AGE_MAP[label])
-        ? AGE_MAP[label]
-        : AGE_MAP[label]
-          ? [AGE_MAP[label]]
-          : []
-    );
-
-    const genderValuesIds = genderValuesList.flatMap((label) =>
-      Array.isArray(GENDER_MAP[label])
-        ? GENDER_MAP[label]
-        : GENDER_MAP[label]
-          ? [GENDER_MAP[label]]
-          : []
-    );
+    const statusIds = normalizeArray(statusCodes).flatMap((statusCode) => {
+      const statusId =
+        TRANSACTION_STATUS_FILTERS[String(statusCode).toLowerCase()];
+      return statusId ? [statusId] : [];
+    });
     const transactionsResponse = await getTransactionsByRecollectionCenterId({
       recollectionCenterId: recollectionCenterId,
       page: page,
-      selectedDate: dateTimeFormat,
-      filterMode: filterMode,
-      numberOfBoxes: numberOfBoxes,
-      maxNumberOfBoxes: maxNumberOfBoxes,
-      ageFiltersIds: ageFiltersIds,
-      genderValuesIds: genderValuesIds,
+      selectedDate: selectedDate,
+      transactionNumber: formatTransactionNumber(transactionNumber),
+      statusIds: [...new Set(statusIds)],
       conn: conn
     });
     if (!transactionsResponse.success) {

@@ -1,10 +1,24 @@
 const {
   newQRCode,
-  getQRCodeByRecollectionCenterCode
+  getQRCodeByRecollectionCenterCode,
+  getManualAccessCodeByRecollectionCenterId
 } = require("../models/QRCode");
 const QRCode = require("qrcode");
+const crypto = require("crypto");
 const { uploadFile } = require("../s3Bucket/s3Bucket");
 const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
+
+const ACCESS_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const ACCESS_CODE_LENGTH = 6;
+
+function generateAccessCode() {
+  const randomBytes = crypto.randomBytes(ACCESS_CODE_LENGTH);
+
+  return Array.from(
+    randomBytes,
+    (byte) => ACCESS_CODE_ALPHABET[byte % ACCESS_CODE_ALPHABET.length]
+  ).join("");
+}
 
 /**
  * Generates a new QR code image, hashes the value, and stores it in the database.
@@ -18,22 +32,31 @@ const { BETHLEHEM_RECOLLECTION_CENTER_ID } = require("../helpers/constants");
  */
 async function writeNewQRCode(req, res) {
   try {
-    const { accessCode, RC_Code } = req.body;
+    const { RC_Code } = req.body;
+    const accessCode = generateAccessCode();
     const opts = { type: "png", errorCorrectionLevel: "H", width: 300 };
     const qrBuffer = await QRCode.toBuffer(RC_Code, opts);
 
     await uploadFile(`RC/QR-Code/${RC_Code}`, qrBuffer, "image/png", "qrCodes");
 
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setUTCHours(4, 0, 0, 0);
+
+    if (expiresAt <= now) expiresAt.setUTCDate(expiresAt.getUTCDate() + 1);
+
     const { success, error } = await newQRCode(
       accessCode,
-      BETHLEHEM_RECOLLECTION_CENTER_ID
+      BETHLEHEM_RECOLLECTION_CENTER_ID,
+      expiresAt
     );
     if (!success) {
       throw new Error(error?.message || error || "Error creating QR code.");
     }
     res.status(201).json({
       response: true,
-      message: "QR code generated successfully."
+      message: "QR code generated successfully.",
+      accessCode
     });
   } catch (error) {
     res.status(500).json({
@@ -71,7 +94,7 @@ async function isQRCodeValueCorrect(req, res) {
 
     res.json({
       response: Boolean(data),
-      message: Boolean(data)
+      message: data
         ? ""
         : "The QR code is incorrect. Please check and try again."
     });
@@ -83,7 +106,37 @@ async function isQRCodeValueCorrect(req, res) {
   }
 }
 
+async function getManualAccessCode(_req, res) {
+  try {
+    const { success, data, message } =
+      await getManualAccessCodeByRecollectionCenterId(
+        BETHLEHEM_RECOLLECTION_CENTER_ID
+      );
+    if (!success) {
+      throw new Error(message || "Internal server error.");
+    }
+
+    if (!data) {
+      return res.status(404).json({
+        response: false,
+        message: "No active access code found for the recollection center."
+      });
+    }
+
+    return res.status(200).json({
+      response: true,
+      accessCode: data.accessCode
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal server error.",
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   writeNewQRCode,
-  isQRCodeValueCorrect
+  isQRCodeValueCorrect,
+  getManualAccessCode
 };

@@ -7,6 +7,20 @@ const {
   UpdateCommand
 } = require("@aws-sdk/lib-dynamodb");
 const REGION = process.env.AWS_REGION || "us-east-2";
+const SESSIONS_TABLE =
+  process.env.DYNAMODB_SESSIONS_TABLE ||
+  (process.env.NODE_ENV === "production"
+    ? "prod-app-sessions"
+    : "dev-app-sessions");
+const OTP_TABLE =
+  process.env.DYNAMODB_OTP_TABLE ||
+  (process.env.NODE_ENV === "production" ? "prod-app-otp" : "dev-app-otp");
+
+if (!SESSIONS_TABLE || !OTP_TABLE) {
+  throw new Error(
+    "DYNAMODB_SESSIONS_TABLE and DYNAMODB_OTP_TABLE are required in production."
+  );
+}
 
 const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
@@ -17,7 +31,7 @@ const onAppOpen = async (userId, sessionId) => {
     const expiresAt = Math.floor(Date.now() / 1000) + DAYS_7_IN_SECONDS;
 
     const command = new PutCommand({
-      TableName: "dev-app-sessions",
+      TableName: SESSIONS_TABLE,
       Item: {
         userId: String(userId), // Partition Key (Unique per user if you only allow 1 device)
         sessionId: sessionId, // Internal session control token
@@ -37,7 +51,7 @@ const onUserRegistration = async (userId, email, otpHash) => {
     const expiresAt = Math.floor(Date.now() / 1000) + 900; // 15 minutos en segundos
 
     const command = new PutCommand({
-      TableName: "dev-app-otp",
+      TableName: OTP_TABLE,
       Item: {
         userId: String(userId),
         email: email,
@@ -57,7 +71,7 @@ const onUserRegistration = async (userId, email, otpHash) => {
 
 const getUserOtp = async (userId) => {
   const command = new GetCommand({
-    TableName: "dev-app-otp",
+    TableName: OTP_TABLE,
     Key: { userId: String(userId) }
   });
 
@@ -66,7 +80,7 @@ const getUserOtp = async (userId) => {
 
 const getAppSession = async (userId) => {
   const command = new GetCommand({
-    TableName: "dev-app-sessions",
+    TableName: SESSIONS_TABLE,
     Key: { userId: String(userId) }
   });
 
@@ -75,7 +89,7 @@ const getAppSession = async (userId) => {
 
 const deleteUserOtp = async (userId) => {
   const command = new DeleteCommand({
-    TableName: "dev-app-otp",
+    TableName: OTP_TABLE,
     Key: { userId: String(userId) }
   });
 
@@ -86,7 +100,7 @@ const onUserResend = async (userId, newOtpHash) => {
   const now = Math.floor(Date.now() / 1000);
 
   const command = new UpdateCommand({
-    TableName: "dev-app-otp",
+    TableName: OTP_TABLE,
     Key: { userId: String(userId) },
 
     UpdateExpression:
@@ -115,7 +129,8 @@ const onUserResend = async (userId, newOtpHash) => {
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
       throw new Error(
-        "You must wait 60 seconds or you have reached the resend limit."
+        "You must wait 60 seconds or you have reached the resend limit.",
+        { cause: error }
       );
     }
 
@@ -125,7 +140,7 @@ const onUserResend = async (userId, newOtpHash) => {
 const onUserBadAttempt = async (userId) => {
   try {
     const command = new UpdateCommand({
-      TableName: "dev-app-otp",
+      TableName: OTP_TABLE,
       Key: { userId: String(userId) },
 
       UpdateExpression: "ADD attempts :one",
@@ -142,7 +157,7 @@ const onUserBadAttempt = async (userId) => {
     await docClient.send(command);
   } catch (error) {
     if (error.name === "ConditionalCheckFailedException") {
-      throw new Error("Maximum attempts reached.");
+      throw new Error("Maximum attempts reached.", { cause: error });
     }
     throw error;
   }
@@ -150,7 +165,7 @@ const onUserBadAttempt = async (userId) => {
 
 const onAppClose = async (userId) => {
   const command = new DeleteCommand({
-    TableName: "dev-app-sessions",
+    TableName: SESSIONS_TABLE,
     Key: {
       userId: String(userId)
     }

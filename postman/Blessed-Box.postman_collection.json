@@ -1,0 +1,412 @@
+{
+  "info": {
+    "name": "Blessed Box API",
+    "description": "Complete API collection for the Blessed Box development and production environments. Select the matching Postman environment before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://dev-api.blessedbox.org" },
+    { "key": "email", "value": "" },
+    { "key": "password", "value": "" },
+    { "key": "name", "value": "" },
+    { "key": "lastName", "value": "" },
+    { "key": "otp", "value": "" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "rcCode", "value": "" },
+    { "key": "accessCode", "value": "" },
+    { "key": "backupKey", "value": "" },
+    { "key": "recollectionCenterCode", "value": "" },
+    { "key": "recollectionCenterName", "value": "" },
+    { "key": "transactionId", "value": "" },
+    { "key": "statusId", "value": "2" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Check API and database health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"{{name}}\",\n  \"lastName\": \"{{lastName}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Login successful', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (body.accessToken) pm.environment.set('accessToken', body.accessToken);",
+                  "if (body.refreshToken) pm.environment.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify registration OTP",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/verify-otp"
+          }
+        },
+        {
+          "name": "Resend registration OTP",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/resend-otp"
+          }
+        },
+        {
+          "name": "Refresh tokens",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/refresh"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Tokens refreshed', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (body.accessToken) pm.environment.set('accessToken', body.accessToken);",
+                  "if (body.refreshToken) pm.environment.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/logout"
+          }
+        },
+        {
+          "name": "Request password reset OTP",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/forgot-password"
+          }
+        },
+        {
+          "name": "Verify password reset OTP",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/verify-reset-otp"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Password reset OTP verified', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (body.accessToken) pm.environment.set('accessToken', body.accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/change-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backup keys",
+      "item": [
+        {
+          "name": "Verify backup key",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keyValue\": \"{{backupKey}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/backupKeys/isKey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "QR codes",
+      "item": [
+        {
+          "name": "Generate QR code and access code",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"RC_Code\": \"{{rcCode}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/qrCodes/newQRCode"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('QR code generated', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if (body.accessCode) pm.environment.set('accessCode', body.accessCode);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify access code",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessCode\": \"{{accessCode}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/qrCodes/isQRCode"
+          }
+        },
+        {
+          "name": "Get manual RC access code",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/qrCodes/manualAccessCode"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Manual access code retrieved', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (body.accessCode) pm.environment.set('accessCode', body.accessCode);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Recollection centers",
+      "item": [
+        {
+          "name": "Create recollection center",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{recollectionCenterCode}}\",\n  \"name\": \"{{recollectionCenterName}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/recollectionCenters/newRecollectionCenter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "Create transaction",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"boxLabels\": {\n    \"Male\": {\n      \"2-4\": 1,\n      \"5-9\": 0,\n      \"10-14\": 0\n    },\n    \"Female\": {\n      \"2-4\": 0,\n      \"5-9\": 0,\n      \"10-14\": 0\n    },\n    \"Unlabeled\": {\n      \"quantity\": 0\n    }\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/transactions/newTransaction"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Transaction created', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if (body.response && body.response.transactionId) pm.environment.set('transactionId', body.response.transactionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update transaction status",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"statusId\": {{statusId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/transactions/editTransactionStatus"
+          }
+        },
+        {
+          "name": "List recollection center transactions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/recollectionCenterTransactions?page=1&selectedDay=&transactionNumber=&filters=%7B%22statusCodes%22%3A%5B%22pending%22%5D%7D",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "recollectionCenterTransactions"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "selectedDay", "value": "" },
+                { "key": "transactionNumber", "value": "" },
+                { "key": "filters", "value": "{\"statusCodes\":[\"pending\"]}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get transaction details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/transactionDetails?transactionId={{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "transactionDetails"],
+              "query": [{ "key": "transactionId", "value": "{{transactionId}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Boxes",
+      "item": [
+        {
+          "name": "Get my deposited boxes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/boxes/userBoxes"
+          }
+        },
+        {
+          "name": "Get recollection center box count",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/boxes/countRCBoxes"
+          }
+        }
+      ]
+    }
+  ]
+}

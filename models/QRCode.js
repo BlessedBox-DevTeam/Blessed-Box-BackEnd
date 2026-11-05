@@ -1,5 +1,4 @@
 const db = require("../db.js");
-const argon2 = require("argon2");
 const { returnServiceObject } = require("../helpers/helpers.js");
 
 /**
@@ -10,13 +9,13 @@ const { returnServiceObject } = require("../helpers/helpers.js");
  * @returns {Promise<Object>} A service object containing success status, data, and optional message.
  *
  * @example
- * const result = await newQRCode("sample-code", 1);
+ * const result = await newQRCode("sample-code", 1, "2023-12-31 23:59:59");
  */
-const newQRCode = async (code, recollectionCenterId) => {
+const newQRCode = async (code, recollectionCenterId, expiresAt) => {
   try {
     const [result] = await db.query(
-      "INSERT INTO access_codes (code, recollection_center_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))",
-      [code, recollectionCenterId]
+      "INSERT INTO access_codes (code, recollection_center_id, created_at, expires_at) VALUES (?, ?, UTC_TIMESTAMP(), ?)",
+      [code, recollectionCenterId, expiresAt]
     );
 
     return returnServiceObject({
@@ -48,12 +47,15 @@ const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
     const [rows] = await db.query(
       `SELECT 
           ac.code,
-          ac.expires_at <= NOW() AS hasExpired
+          ac.expires_at <= UTC_TIMESTAMP() AS hasExpired
        FROM access_codes ac
        INNER JOIN recollection_centers rc 
         ON  rc.id = ac.recollection_center_id 
         AND rc.is_active = 1 
-       WHERE rc.code = ?`,
+       WHERE rc.code = ?
+        AND ac.expires_at > UTC_TIMESTAMP()
+       ORDER BY ac.expires_at DESC
+       LIMIT 1`,
       [recollectionCenterCode]
     );
 
@@ -72,7 +74,40 @@ const getQRCodeByRecollectionCenterCode = async (recollectionCenterCode) => {
   }
 };
 
+const getManualAccessCodeByRecollectionCenterId = async (
+  recollectionCenterId
+) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT ac.code AS accessCode
+       FROM access_codes ac
+       INNER JOIN recollection_centers rc
+         ON rc.id = ac.recollection_center_id
+         AND rc.is_active = 1
+       WHERE rc.id = ?
+         AND ac.expires_at > UTC_TIMESTAMP()
+       ORDER BY ac.created_at DESC
+       LIMIT 1`,
+      [recollectionCenterId]
+    );
+
+    return returnServiceObject({
+      success: true,
+      data: rows[0] || null
+    });
+  } catch (error) {
+    console.error(error);
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error retrieving manual access code by recollection center ID",
+      error
+    });
+  }
+};
+
 module.exports = {
   newQRCode,
-  getQRCodeByRecollectionCenterCode
+  getQRCodeByRecollectionCenterCode,
+  getManualAccessCodeByRecollectionCenterId
 };
