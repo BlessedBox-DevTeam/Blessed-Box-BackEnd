@@ -9,80 +9,110 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: blessed-box-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    name: Deploy to EC2
+    name: Release to production Auto Scaling Group
     runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      AWS_REGION: us-east-2
+      PROD_ASG_NAME: prod-api
+      RELEASE_PARAMETER: /blessedbox/prod/app/RELEASE_SHA
 
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
-          role-to-assume: arn:aws:iam::830771822639:role/BlessedBox-GitHubActions-Dev
-          aws-region: us-east-2
+          role-to-assume: ${{ vars.AWS_PROD_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Find Dev EC2
-        id: find-instance
+      - name: Publish release SHA and refresh production instances
         run: |
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters \
-              "Name=tag:Name,Values=dev-ec2-instance" \
-              "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].InstanceId" \
-            --output text)
+          set -euo pipefail
 
-          if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
-            echo "No running EC2 found with Name=dev-ec2-instance"
+          RELEASE_SHA="${{ github.sha }}"
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid release SHA: $RELEASE_SHA"
             exit 1
           fi
 
-          echo "Found EC2: $INSTANCE_ID"
-          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          aws ssm put-parameter \
+            --name "$RELEASE_PARAMETER" \
+            --type String \
+            --value "$RELEASE_SHA" \
+            --overwrite
+          echo "Published release $RELEASE_SHA to $RELEASE_PARAMETER"
 
-      - name: Deploy via SSM
-        run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.find-instance.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --comment "BlessedBox Dev deployment" \
-            --parameters 'commands=[
-              "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd pull origin main",
-              "sudo -iu ubuntu git -C /home/ubuntu/blessed-box/Blessed-Box-BackEnd log -1 --oneline",
-              "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && npm ci'\''",
-              "sudo -iu ubuntu bash -c '\''cd /home/ubuntu/blessed-box/Blessed-Box-BackEnd && pm2 restart blessed_box'\''"
-            ]' \
-            --query "Command.CommandId" \
+          wait_for_refresh() {
+            local refresh_id="$1"
+            local started_at
+            local refresh
+            local status
+            local reason
+            started_at=$(date +%s)
+
+            while true; do
+              refresh=$(aws autoscaling describe-instance-refreshes \
+                --auto-scaling-group-name "$PROD_ASG_NAME" \
+                --instance-refresh-ids "$refresh_id" \
+                --output json)
+              status=$(jq -r '.InstanceRefreshes[0].Status // empty' <<< "$refresh")
+              reason=$(jq -r '.InstanceRefreshes[0].StatusReason // empty' <<< "$refresh")
+              echo "Instance refresh $refresh_id status: $status${reason:+ - $reason}"
+
+              case "$status" in
+                Successful)
+                  return 0
+                  ;;
+                Pending|InProgress|Baking|Cancelling|RollbackInProgress|RollbackPending)
+                  if [ "$(( $(date +%s) - started_at ))" -ge 9000 ]; then
+                    echo "Timed out waiting for instance refresh $refresh_id."
+                    return 1
+                  fi
+                  sleep 30
+                  ;;
+                *)
+                  echo "Instance refresh $refresh_id ended unsuccessfully: $status${reason:+ - $reason}"
+                  return 1
+                  ;;
+              esac
+            done
+          }
+
+          PREVIOUS_REFRESH=$(aws autoscaling describe-instance-refreshes \
+            --auto-scaling-group-name "$PROD_ASG_NAME" \
+            --max-records 1 \
+            --output json)
+          PREVIOUS_REFRESH_ID=$(jq -r '.InstanceRefreshes[0].InstanceRefreshId // empty' <<< "$PREVIOUS_REFRESH")
+          PREVIOUS_STATUS=$(jq -r '.InstanceRefreshes[0].Status // empty' <<< "$PREVIOUS_REFRESH")
+
+          case "$PREVIOUS_STATUS" in
+            Pending|InProgress|Baking|Cancelling|RollbackInProgress|RollbackPending)
+              echo "Waiting for existing instance refresh $PREVIOUS_REFRESH_ID before starting this release."
+              wait_for_refresh "$PREVIOUS_REFRESH_ID"
+              ;;
+            ""|Successful|Cancelled|Failed|RollbackFailed|RollbackSuccessful)
+              echo "No active instance refresh to wait for (latest status: ${PREVIOUS_STATUS:-none})."
+              ;;
+            *)
+              echo "Unrecognized instance refresh status: $PREVIOUS_STATUS"
+              exit 1
+              ;;
+          esac
+
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$PROD_ASG_NAME" \
+            --query "InstanceRefreshId" \
             --output text)
+          if [ -z "$REFRESH_ID" ] || [ "$REFRESH_ID" = "None" ]; then
+            echo "AWS did not return an instance refresh ID."
+            exit 1
+          fi
 
-          echo "SSM Command ID: $COMMAND_ID"
-
-          while true; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "${{ steps.find-instance.outputs.instance_id }}" \
-              --query "Status" \
-              --output text)
-
-            echo "SSM Status: $STATUS"
-
-            case "$STATUS" in
-              Success)
-                echo "Deployment successful!"
-                break
-                ;;
-              Failed|Cancelled|TimedOut|Cancelling)
-                echo "Deployment failed!"
-
-                aws ssm get-command-invocation \
-                  --command-id "$COMMAND_ID" \
-                  --instance-id "${{ steps.find-instance.outputs.instance_id }}" \
-                  --query "{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}" \
-                  --output yaml
-
-                exit 1
-                ;;
-              *)
-                sleep 5
-                ;;
-            esac
-          done
+          echo "Started production instance refresh $REFRESH_ID for release $RELEASE_SHA."
+          wait_for_refresh "$REFRESH_ID"
+          echo "Production release $RELEASE_SHA completed successfully."
