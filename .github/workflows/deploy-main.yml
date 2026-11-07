@@ -22,12 +22,28 @@ jobs:
       AWS_REGION: us-east-2
       PROD_ASG_NAME: prod-api
       RELEASE_PARAMETER: /blessedbox/prod/app/RELEASE_SHA
+      AWS_PROD_ROLE_ARN: ${{ vars.AWS_PROD_ROLE_ARN }}
 
     steps:
+      - name: Validate production role configuration
+        shell: bash
+        run: |
+          if [[ -z "$AWS_PROD_ROLE_ARN" ]]; then
+            echo "::error::Repository Actions variable AWS_PROD_ROLE_ARN is empty or unavailable to this workflow."
+            exit 1
+          fi
+
+          if [[ ! "$AWS_PROD_ROLE_ARN" =~ ^arn:aws:iam::[0-9]{12}:role/.+ ]]; then
+            echo "::error::AWS_PROD_ROLE_ARN must be a complete IAM role ARN."
+            exit 1
+          fi
+
+          echo "Production IAM role ARN is configured."
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
-          role-to-assume: ${{ vars.AWS_PROD_ROLE_ARN }}
+          role-to-assume: ${{ env.AWS_PROD_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Publish release SHA and refresh production instances
@@ -39,13 +55,6 @@ jobs:
             echo "Invalid release SHA: $RELEASE_SHA"
             exit 1
           fi
-
-          aws ssm put-parameter \
-            --name "$RELEASE_PARAMETER" \
-            --type String \
-            --value "$RELEASE_SHA" \
-            --overwrite
-          echo "Published release $RELEASE_SHA to $RELEASE_PARAMETER"
 
           wait_for_refresh() {
             local refresh_id="$1"
@@ -103,6 +112,13 @@ jobs:
               exit 1
               ;;
           esac
+
+          aws ssm put-parameter \
+            --name "$RELEASE_PARAMETER" \
+            --type String \
+            --value "$RELEASE_SHA" \
+            --overwrite
+          echo "Published release $RELEASE_SHA to $RELEASE_PARAMETER"
 
           REFRESH_ID=$(aws autoscaling start-instance-refresh \
             --auto-scaling-group-name "$PROD_ASG_NAME" \
