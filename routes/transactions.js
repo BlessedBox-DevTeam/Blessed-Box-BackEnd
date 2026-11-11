@@ -4,6 +4,12 @@ const transactionController = require("../controllers/transactionController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorize } = require("../middleware/authorize");
 const permissions = require("../helpers/constants");
+const RateLimit = require("express-rate-limit");
+const limiter = RateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => String(req.user.userId)
+});
 
 router.post(
   "/newTransaction",
@@ -27,6 +33,7 @@ router.get(
   "/userTransactions",
   authenticate,
   authorize([permissions.READ_OWN_TRANSACTION_PERMISSION]),
+  limiter,
   transactionController.getUserTransactions
 );
 router.get(
