@@ -24,6 +24,12 @@ router.get(
   transactionController.getTransactionsByRecollectionCenter
 );
 router.get(
+  "/userTransactions",
+  authenticate,
+  authorize([permissions.READ_OWN_TRANSACTION_PERMISSION]),
+  transactionController.getUserTransactions
+);
+router.get(
   "/transactionDetails",
   authenticate,
   authorize([permissions.READ_TRANSACTION_PERMISSION]),

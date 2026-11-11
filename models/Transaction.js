@@ -152,6 +152,104 @@ const getTransactionsByRecollectionCenterId = async ({
 };
 
 /**
+ * Retrieves transactions created by a specific user.
+ *
+ * @param {number|string} userId - The ID of the user who created the transactions.
+ * @param {number} page - The page of results to retrieve.
+ * @param {Object} conn - Database connection.
+ * @returns {Promise<Object>} A service object containing transaction summaries or an error.
+ */
+const getTransactionsByUserId = async ({
+  userId,
+  page = 1,
+  selectedDate,
+  transactionNumber = "",
+  statusIds = [],
+  conn
+} = {}) => {
+  const pageSize = 10;
+  const offset = (page - 1) * pageSize;
+
+  try {
+    const whereClauses = [
+      "t.created_by = ?",
+      "t.is_active = 1",
+      "t.created_at >= MAKEDATE(YEAR(CURDATE()), 1)",
+      "t.created_at < MAKEDATE(YEAR(CURDATE()) + 1, 1)"
+    ];
+    const queryParams = [userId];
+
+    if (statusIds.length) {
+      whereClauses.push(
+        `t.status_id IN (${statusIds.map(() => "?").join(", ")})`
+      );
+      queryParams.push(...statusIds);
+    }
+    if (selectedDate) {
+      whereClauses.push(
+        "t.created_at >= ? AND t.created_at < DATE_ADD(?, INTERVAL 1 DAY)"
+      );
+      queryParams.push(selectedDate, selectedDate);
+    }
+    if (transactionNumber) {
+      whereClauses.push("UPPER(t.transaction_number) LIKE ?");
+      queryParams.push(`%${transactionNumber}%`);
+    }
+
+    const [rows] = await conn.query(
+      `SELECT
+        t.id AS transactionId,
+        t.created_at AS createdDate,
+        ts.code AS statusCode,
+        t.transaction_number AS transactionNumber,
+        COUNT(b.id) AS boxCount
+      FROM transactions t
+      INNER JOIN transaction_status ts
+        ON ts.id = t.status_id
+        AND ts.is_active = 1
+      INNER JOIN recollection_centers rc
+        ON rc.id = t.recollection_center_id
+        AND rc.is_active = 1
+      INNER JOIN boxes b
+        ON b.transaction_id = t.id
+        AND b.is_active = 1
+      WHERE ${whereClauses.join(" AND ")}
+      GROUP BY t.id, t.created_at, ts.code, t.transaction_number
+      ORDER BY t.created_at DESC
+      LIMIT ? OFFSET ?`,
+      [...queryParams, pageSize, offset]
+    );
+
+    const [[{ totalCount }]] = await conn.query(
+      `SELECT COUNT(*) AS totalCount
+      FROM (
+        SELECT t.id
+        FROM transactions t
+        INNER JOIN boxes b
+          ON b.transaction_id = t.id
+          AND b.is_active = 1
+        WHERE ${whereClauses.join(" AND ")}
+        GROUP BY t.id
+      ) AS userTransactions`,
+      queryParams
+    );
+
+    return returnServiceObject({
+      success: true,
+      data: { transactions: rows, totalCount: totalCount }
+    });
+  } catch (error) {
+    console.error(error);
+    return returnServiceObject({
+      success: false,
+      data: null,
+      message: "Error retrieving transactions by user ID",
+      error: error
+    });
+  }
+};
+
+/**
  * Updates the status code of a specific transaction by its ID.
  *
  * @param {number|string} id - The transaction ID to update.
@@ -278,6 +376,7 @@ const generateTransactionNumber = async (conn) => {
 module.exports = {
   newTransaction,
   getTransactionsByRecollectionCenterId,
+  getTransactionsByUserId,
   editTransactionStatusById,
   getTransactionDetailsById,
   newTransactionHistory

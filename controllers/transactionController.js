@@ -2,6 +2,7 @@ const db = require("../db.js");
 const {
   newTransaction,
   getTransactionsByRecollectionCenterId,
+  getTransactionsByUserId,
   editTransactionStatusById,
   getTransactionDetailsById,
   newTransactionHistory
@@ -211,6 +212,62 @@ async function getTransactionsByRecollectionCenter(req, res) {
 }
 
 /**
+ * Retrieves the authenticated user's transactions.
+ *
+ * @param {Object} req - Express request object.
+ * @param {Object} res - Express response object.
+ * @returns {Promise<void>} Sends a JSON response with the user's transactions or an error.
+ */
+async function getUserTransactions(req, res) {
+  const conn = await db.getConnection();
+  try {
+    const {
+      page: pageParam,
+      selectedDay,
+      transactionNumber = "",
+      filters = {}
+    } = req.query;
+    const page = Number(pageParam) || 1;
+    const selectedDate = selectedDay
+      ? toMySQLDateTimeUTC(selectedDay)
+      : undefined;
+    const parsedFilters =
+      typeof filters === "string" ? JSON.parse(filters) : filters;
+    const statusCodes = parsedFilters.statusCodes ?? [];
+    const normalizeArray = (value) =>
+      Array.isArray(value) ? value : value ? [value] : [];
+    const statusIds = normalizeArray(statusCodes).flatMap((statusCode) => {
+      const statusId =
+        TRANSACTION_STATUS_FILTERS[String(statusCode).toLowerCase()];
+      return statusId ? [statusId] : [];
+    });
+    const { userId } = req.user;
+    const transactionsResponse = await getTransactionsByUserId({
+      userId: userId,
+      page: page,
+      selectedDate: selectedDate,
+      transactionNumber: formatTransactionNumber(transactionNumber),
+      statusIds: [...new Set(statusIds)],
+      conn: conn
+    });
+    if (!transactionsResponse.success) {
+      throw new Error(
+        transactionsResponse.message || "Error fetching user transactions."
+      );
+    }
+
+    return res.json({ response: transactionsResponse.data });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error." });
+  } finally {
+    conn.release();
+  }
+}
+
+/**
  * Updates the status of a transaction.
  *
  * @param {Object} req - Express request object.
@@ -318,6 +375,7 @@ async function getTransactionDetails(req, res) {
 module.exports = {
   writeNewTransaction,
   getTransactionsByRecollectionCenter,
+  getUserTransactions,
   updateTransactionStatus,
   getTransactionDetails
 };
